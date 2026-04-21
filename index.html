@@ -9,6 +9,10 @@
 <body>
 
 <div class="container">
+    <div style="position: relative;">
+        <button id="theme-toggle" class="theme-toggle" aria-label="Toggle Dark Mode">🌓</button>
+    </div>
+    
     <header>
         <h1>李希伦 Xilun Li</h1>
         <h3>lxl28@stu.pku.edu.cn</h3>
@@ -45,5 +49,28 @@
     </div>
 </div>
 
+<script>
+    const toggleBtn = document.getElementById('theme-toggle');
+    const body = document.body;
+
+    // 1. 页面加载时检查用户之前是否选择过深色模式
+    const currentTheme = localStorage.getItem('theme');
+    if (currentTheme === 'dark') {
+        body.classList.add('dark-mode');
+    }
+
+    // 2. 点击按钮时的切换逻辑
+    toggleBtn.addEventListener('click', () => {
+        body.classList.toggle('dark-mode');
+        
+        // 3. 将当前选择保存到浏览器的 localStorage 中
+        if (body.classList.contains('dark-mode')) {
+            localStorage.setItem('theme', 'dark');
+        } else {
+            localStorage.setItem('theme', 'light');
+        }
+    });
+</script>
+    
 </body>
 </html>
