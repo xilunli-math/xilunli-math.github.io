@@ -69,3 +69,25 @@ a:hover {
 .footer-section {
     margin-top: 40px;
 }
+
+/* 名言引用区块样式 */
+.quote-block {
+    background-color: var(--bg-color);
+    margin: 30px 0;
+    padding: 15px 25px;
+    border-left: 4px solid #7f8c8d; /* 使用低调的灰色作为引用的边框 */
+    border-radius: 0 8px 8px 0;
+    font-style: italic; /* 斜体字增强引用感 */
+    color: #555555;
+    font-size: 1.1em;
+}
+
+.quote-author {
+    display: block;
+    margin-top: 10px;
+    font-size: 0.9em;
+    font-weight: bold;
+    color: var(--primary-color);
+    text-align: right; /* 作者名字靠右对齐 */
+    font-style: normal; /* 作者名字恢复正体 */
+}
