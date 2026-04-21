@@ -50,7 +50,8 @@ a:hover {
     font-size: 1.1em;
     margin-bottom: 30px;
 }
-.pub-list {
+
+/* .pub-list {
     list-style: none;
     padding: 0;
 }
@@ -65,10 +66,43 @@ a:hover {
 .pub-list li:hover {
     transform: translateX(5px);
     box-shadow: 0 4px 10px rgba(0,0,0,0.05);
-}
+} */
 .footer-section {
     margin-top: 40px;
 }
+
+/* -------------------------------------
+   Publications & Preprints 极简学术列表样式
+   ------------------------------------- */
+.pub-list {
+    list-style: none; /* 移除默认的列表黑点 */
+    padding: 0;
+    margin: 0;
+}
+
+.pub-list li {
+    position: relative;
+    padding-left: 1.5em; /* 为左侧符号留出空间，并实现多行文本的悬挂对齐 */
+    margin-bottom: 18px; /* 增加条目之间的间距，提升呼吸感 */
+    line-height: 1.6;
+    color: var(--text-color);
+}
+
+/* 使用 CSS 伪元素绘制一个低调精致的列表前缀 */
+.pub-list li::before {
+    content: "▪"; /* 也可以换成 "•" 或 "—" */
+    position: absolute;
+    left: 0.2em;
+    top: 0.1em; /* 微调垂直位置，使其与首行文字视觉居中 */
+    color: #95a5a6; /* 使用低调的灰蓝色，而不是亮色 */
+    font-size: 0.9em;
+}
+
+/* 仅在鼠标悬停时对链接颜色做极其轻微的反馈，取消所有的方块位移和阴影动画 */
+.pub-list li:hover a {
+    text-decoration: underline;
+}
+
 
 /* 名言引用区块样式 */
 .quote-block {
