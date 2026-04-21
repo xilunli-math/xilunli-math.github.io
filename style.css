@@ -12,6 +12,7 @@ body {
     line-height: 1.6;
     margin: 0;
     padding: 0;
+    transition: background-color 0.3s ease, color 0.3s ease;
 }
 .container {
     max-width: 800px;
@@ -20,6 +21,7 @@ body {
     padding: 40px 50px;
     border-radius: 12px;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+    transition: background-color 0.3s ease, box-shadow 0.3s ease;
 }
 h1 {
     color: var(--primary-color);
@@ -124,4 +126,38 @@ a:hover {
     color: var(--primary-color);
     text-align: right; /* 作者名字靠右对齐 */
     font-style: normal; /* 作者名字恢复正体 */
+}
+
+/* -------------------------------------
+   深色模式 (Dark Mode) 样式
+   ------------------------------------- */
+/* 当 body 被添加了 dark-mode 类时，覆盖原有的颜色变量 */
+body.dark-mode {
+    --primary-color: #ecf0f1;   /* 浅灰色标题 */
+    --accent-color: #5dade2;    /* 稍微亮一点的蓝色，在深色背景上更易读 */
+    --bg-color: #121212;        /* 整体深色背景 */
+    --card-bg: #1e1e1e;         /* 卡片深灰背景 */
+    --text-color: #e0e0e0;      /* 浅灰色正文文字 */
+}
+
+/* 针对深色模式优化名言引用的边框颜色 */
+body.dark-mode .quote-block {
+    border-left-color: #555555;
+}
+
+/* 深色/浅色切换按钮样式 */
+.theme-toggle {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: none;
+    border: none;
+    font-size: 1.5em;
+    cursor: pointer;
+    color: var(--text-color);
+    transition: transform 0.2s ease;
+}
+
+.theme-toggle:hover {
+    transform: scale(1.1);
 }
