@@ -2564,7 +2564,8 @@
       resizeCanvas() {
         const rect = this.canvas.getBoundingClientRect();
         const isMobileLayout = window.matchMedia("(max-width: 900px)").matches;
-        const dprLimit = isMobileLayout ? 1.35 : 2;
+        /* const dprLimit = isMobileLayout ? 1.35 : 2; */
+        const dprLimit = 2;
         const dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, dprLimit));
         const width = Math.max(1, Math.round(rect.width * dpr));
         const height = Math.max(1, Math.round(rect.height * dpr));
