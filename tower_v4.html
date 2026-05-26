@@ -4252,9 +4252,8 @@
           btn.disabled = g.buffSelectionOpen || g.isTerminalStatus() || cooldownRemaining > 0 || minCost === Infinity || g.gold < minCost;
           const priceEl = btn.querySelector?.(".tower-price");
           if (priceEl) {
-            priceEl.textContent = cooldownRemaining > 0
-              ? `冷却${Math.ceil(cooldownRemaining)}s`
-              : minCost === Infinity ? `${TOWER_TYPES[key].price}金` : `${minCost}金起`;
+            // 购买区始终显示防御塔原价，实际放置费用仍会在放置预览/提示中按地形和增益结算。
+            priceEl.textContent = `${TOWER_TYPES[key].price}金`;
           }
         }
 
