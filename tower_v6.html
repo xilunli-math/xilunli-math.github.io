@@ -2725,6 +2725,80 @@
       }
     }
 
+
+    /* 背景图加载失败时的文字标题兜底：GitHub Pages 路径/大小写/文件名不匹配时自动显示。 */
+    .main-menu-fallback-title {
+      position: absolute;
+      left: 50%;
+      top: clamp(82px, 12.5vh, 150px);
+      z-index: 2;
+      width: min(90vw, 560px);
+      transform: translateX(-50%);
+      display: none;
+      pointer-events: none;
+      text-align: center;
+    }
+
+    html.main-menu-bg-missing .main-menu-fallback-title {
+      display: block;
+    }
+
+    html.main-menu-bg-missing .main-menu-panel {
+      background-image:
+        radial-gradient(circle at 50% 13%, rgba(68, 207, 255, 0.42), rgba(24, 90, 190, 0.17) 33%, rgba(0, 0, 0, 0) 54%),
+        linear-gradient(180deg, #061a43 0%, #0b2f6d 39%, #06152e 72%, #020713 100%) !important;
+    }
+
+    .main-menu-fallback-title-main {
+      font-size: clamp(43px, 12.2vw, 86px);
+      line-height: 0.98;
+      font-weight: 1000;
+      letter-spacing: 0.045em;
+      color: #fff;
+      background: linear-gradient(90deg, #ffd15d 0%, #fff0a8 35%, #f8fbff 50%, #90d8ff 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      filter: drop-shadow(0 5px 0 rgba(0, 18, 50, 0.92)) drop-shadow(0 0 22px rgba(52, 195, 255, 0.55));
+      text-shadow: 0 10px 28px rgba(0,0,0,0.70);
+      white-space: nowrap;
+    }
+
+    .main-menu-fallback-title-sub {
+      width: fit-content;
+      max-width: 100%;
+      margin: clamp(12px, 2vh, 20px) auto 0;
+      padding: 8px 16px;
+      border-radius: 999px;
+      color: rgba(255,255,255,0.96);
+      font-size: clamp(14px, 3.2vw, 20px);
+      line-height: 1.25;
+      font-weight: 950;
+      letter-spacing: 0.04em;
+      background: linear-gradient(180deg, rgba(5, 28, 74, 0.86), rgba(0, 10, 31, 0.88));
+      border: 1px solid rgba(108, 222, 255, 0.56);
+      box-shadow: 0 12px 32px rgba(0,0,0,0.45), inset 0 0 0 1px rgba(255,255,255,0.08), 0 0 22px rgba(60, 195, 255, 0.20);
+      text-shadow: 0 2px 3px rgba(0,0,0,0.85);
+    }
+
+    html.main-menu-bg-missing .main-menu-actions {
+      box-shadow: 0 18px 52px rgba(0,0,0,0.68), inset 0 0 0 1px rgba(255,255,255,0.10), 0 0 34px rgba(48, 172, 255, 0.24) !important;
+    }
+
+    @media (max-width: 520px) {
+      .main-menu-fallback-title {
+        top: clamp(68px, 10.2vh, 112px);
+        width: min(92vw, 420px);
+      }
+      .main-menu-fallback-title-main {
+        font-size: clamp(39px, 13.4vw, 64px);
+      }
+      .main-menu-fallback-title-sub {
+        font-size: clamp(12px, 3.4vw, 16px);
+        padding: 7px 12px;
+      }
+    }
+
   </style>
 </head>
 <body>
@@ -15126,5 +15200,52 @@
       tdLangApplyToRoot(document.body);
     });
   </script>
+  <script>
+    // GitHub Pages 兜底：主动检测主界面背景图是否能加载；如果路径/大小写/文件名错误，则显示文字版标题。
+    (function () {
+      var root = document.documentElement;
+      var candidates = ["assets/main%20page.png", "assets/main page.png", "assets/main_page1.png", "assets/main_page.png", "assets/main-bg1.png", "assets/main_bg1.png"];
+      var index = 0;
+      var finished = false;
+      root.classList.add("main-menu-bg-checking");
+
+      function cssUrl(url) {
+        return 'url("' + String(url).replace(/\/g, "\\").replace(/"/g, "\"") + '")';
+      }
+
+      function showFallback(finalState) {
+        if (!finished) root.classList.add("main-menu-bg-missing");
+        if (finalState) root.classList.remove("main-menu-bg-checking");
+      }
+
+      var slowTimer = window.setTimeout(function () {
+        showFallback(false);
+      }, 4200);
+
+      function tryNext() {
+        if (finished) return;
+        if (index >= candidates.length) {
+          window.clearTimeout(slowTimer);
+          showFallback(true);
+          return;
+        }
+        var src = candidates[index++];
+        var img = new Image();
+        img.onload = function () {
+          if (finished) return;
+          finished = true;
+          window.clearTimeout(slowTimer);
+          root.style.setProperty("--main-menu-bg-image", cssUrl(src));
+          root.classList.remove("main-menu-bg-checking", "main-menu-bg-missing");
+          root.classList.add("main-menu-bg-loaded");
+        };
+        img.onerror = tryNext;
+        img.src = src;
+      }
+
+      tryNext();
+    })();
+  </script>
+
 </body>
 </html>
