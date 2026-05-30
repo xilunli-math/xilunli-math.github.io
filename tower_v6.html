@@ -687,6 +687,31 @@
       font-weight: 1000;
     }
 
+
+    .td-pvp-upgrade-panel {
+      display: none;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 6px;
+    }
+    .td-pvp-upgrade-panel.active { display: grid; }
+    .td-pvp-upgrade-info {
+      grid-column: 1 / -1;
+      padding: 8px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(0,0,0,0.18);
+      color: rgba(255,255,255,0.88);
+      font-size: 12px;
+      line-height: 1.4;
+      font-weight: 820;
+    }
+    .td-pvp-shop-grid.is-hidden { display: none; }
+    .td-pvp-tab-btn.upgrade-mode {
+      background: linear-gradient(180deg, #16c1df, #087ea4);
+      color: #fff;
+      border-color: rgba(155,246,255,0.62);
+    }
+
     @media (max-width: 900px) {
       .roguelike-panel { padding: 12px; border-radius: 16px; max-height: calc(var(--app-height) - 16px); }
       .roguelike-title { font-size: 19px; }
@@ -17778,6 +17803,2845 @@
       window.tdCodexOpen = tdCodexOpen;
       window.tdCodexClose = tdCodexClose;
       window.tdCodexRender = tdCodexRender;
+    }());
+  </script>
+
+  <!-- 本地双人对战原型：第一阶段验证版。手机上下结构 + 三路冰块地图。独立于原单机模式运行。 -->
+  <style id="tdPvpLocalStyle">
+    .td-pvp-local-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 12000;
+      display: grid;
+      place-items: center;
+      padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+      background:
+        radial-gradient(circle at 18% 9%, rgba(86, 202, 255, 0.20), transparent 32%),
+        radial-gradient(circle at 82% 14%, rgba(255, 105, 135, 0.16), transparent 34%),
+        rgba(3, 8, 19, 0.94);
+      color: #f8fbff;
+      box-sizing: border-box;
+    }
+    .td-pvp-local-modal.hidden { display: none; }
+    .td-pvp-shell {
+      width: min(1180px, 100%);
+      height: min(940px, calc(var(--app-height, 100vh) - 16px));
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      gap: 8px;
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 22px;
+      background: linear-gradient(180deg, rgba(27, 40, 69, 0.985), rgba(9, 15, 28, 0.985));
+      box-shadow: 0 28px 90px rgba(0,0,0,0.62), inset 0 0 0 1px rgba(255,255,255,0.05);
+      overflow: hidden;
+    }
+    .td-pvp-topbar {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
+      align-items: center;
+      padding: 9px 10px 0;
+    }
+    .td-pvp-title-line {
+      min-width: 0;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+    }
+    .td-pvp-title {
+      font-size: 18px;
+      line-height: 1.2;
+      font-weight: 1000;
+      letter-spacing: 0.03em;
+      color: #fff;
+      white-space: nowrap;
+    }
+    .td-pvp-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.16);
+      background: rgba(255,255,255,0.07);
+      font-size: 11.5px;
+      font-weight: 950;
+      color: rgba(255,255,255,0.92);
+      white-space: nowrap;
+    }
+    .td-pvp-pill.p1 { border-color: rgba(101, 209, 255, 0.45); color: #d8f4ff; }
+    .td-pvp-pill.p2 { border-color: rgba(255, 106, 132, 0.45); color: #ffdce4; }
+    .td-pvp-top-actions { display: flex; gap: 6px; align-items: center; }
+    .td-pvp-close-btn,
+    .td-pvp-top-btn {
+      min-height: 34px;
+      padding: 7px 10px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.16);
+      background: linear-gradient(180deg, #536178, #303a4d);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 1000;
+      cursor: pointer;
+      box-shadow: 0 4px 0 rgba(0,0,0,0.25);
+      touch-action: manipulation;
+    }
+    .td-pvp-top-btn.good { background: linear-gradient(180deg, #37c975, #15924c); }
+    .td-pvp-close-btn { width: 40px; padding: 0; font-size: 20px; line-height: 1; }
+    .td-pvp-main {
+      min-height: 0;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(330px, 390px);
+      gap: 8px;
+      padding: 0 10px 10px;
+    }
+    .td-pvp-board-column {
+      min-height: 0;
+      display: grid;
+      place-items: center;
+      border-radius: 18px;
+      border: 1px solid rgba(255,255,255,0.16);
+      background: rgba(5, 12, 24, 0.82);
+      overflow: hidden;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.04);
+    }
+    .td-pvp-canvas-frame {
+      position: relative;
+      height: min(100%, 900px);
+      max-width: 100%;
+      aspect-ratio: 9 / 12;
+      display: grid;
+      place-items: stretch;
+      border-radius: 14px;
+      overflow: hidden;
+      background: #07111f;
+      box-shadow: 0 16px 40px rgba(0,0,0,0.38);
+    }
+    #tdPvpCanvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      cursor: crosshair;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+    .td-pvp-side {
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      overflow: auto;
+      padding: 8px;
+      border-radius: 18px;
+      border: 1px solid rgba(255,255,255,0.16);
+      background: linear-gradient(180deg, rgba(255,255,255,0.065), rgba(255,255,255,0.025));
+    }
+    .td-pvp-mobile-tabs {
+      display: none;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 4px;
+      padding: 4px;
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 12px;
+      background: rgba(255,255,255,0.04);
+    }
+    .td-pvp-tab-btn {
+      min-height: 30px;
+      padding: 4px 5px;
+      border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 9px;
+      background: linear-gradient(180deg, #536178, #303a4d);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 1000;
+      box-shadow: 0 2px 0 rgba(0,0,0,0.25);
+    }
+    .td-pvp-tab-btn.active {
+      background: linear-gradient(180deg, #ffd166, #c67a06);
+      color: #101827;
+      border-color: rgba(255,242,180,0.72);
+    }
+    .td-pvp-card {
+      padding: 9px;
+      border: 1px solid rgba(255,255,255,0.13);
+      border-radius: 14px;
+      background: rgba(255,255,255,0.045);
+    }
+    .td-pvp-card-title {
+      margin: 0 0 7px;
+      font-size: 13px;
+      font-weight: 1000;
+      color: #fff;
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: center;
+    }
+    .td-pvp-desc {
+      margin: 0;
+      color: rgba(255,255,255,0.76);
+      font-size: 12px;
+      line-height: 1.42;
+      font-weight: 760;
+    }
+    .td-pvp-shop-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 6px;
+    }
+    .td-pvp-shop-btn,
+    .td-pvp-action-btn {
+      min-height: 40px;
+      padding: 7px 8px;
+      border: 0;
+      border-radius: 11px;
+      color: #fff;
+      font-size: 12px;
+      line-height: 1.15;
+      font-weight: 1000;
+      cursor: pointer;
+      background: linear-gradient(180deg, #3b82f6, #245bc2);
+      box-shadow: 0 3px 0 rgba(0,0,0,0.25);
+      touch-action: manipulation;
+    }
+    .td-pvp-shop-btn.active {
+      outline: 2px solid #ffd166;
+      box-shadow: 0 0 0 3px rgba(255,209,102,0.16), 0 3px 0 rgba(0,0,0,0.25);
+    }
+    .td-pvp-shop-btn:disabled,
+    .td-pvp-action-btn:disabled {
+      opacity: .42;
+      filter: grayscale(.3);
+      cursor: not-allowed;
+    }
+    .td-pvp-shop-btn small {
+      display: block;
+      margin-top: 3px;
+      color: rgba(255,255,255,0.78);
+      font-size: 10px;
+      font-weight: 850;
+    }
+    .td-pvp-shop-btn.tower { background: linear-gradient(180deg, #236bdc, #153f93); }
+    .td-pvp-shop-btn.monster { background: linear-gradient(180deg, #b345ff, #6122a9); }
+    .td-pvp-action-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 6px;
+    }
+    .td-pvp-action-btn.good { background: linear-gradient(180deg, #37c975, #15924c); }
+    .td-pvp-action-btn.warn { background: linear-gradient(180deg, #ffbd45, #c67a06); color: #101827; }
+    .td-pvp-action-btn.danger { background: linear-gradient(180deg, #ff6381, #ba2544); }
+    .td-pvp-selected {
+      min-height: 45px;
+      color: #ffe6a7;
+      font-size: 12px;
+      line-height: 1.42;
+      font-weight: 840;
+    }
+    .td-pvp-log {
+      flex: 1 1 auto;
+      min-height: 110px;
+      max-height: 220px;
+      overflow: auto;
+      padding: 8px;
+      border-radius: 12px;
+      background: rgba(0,0,0,0.20);
+      border: 1px solid rgba(255,255,255,0.10);
+      color: rgba(255,255,255,0.84);
+      font-size: 11.5px;
+      line-height: 1.42;
+    }
+    .td-pvp-log div { padding: 3px 0; border-bottom: 1px solid rgba(255,255,255,0.055); }
+    .td-pvp-log div:last-child { border-bottom: 0; }
+    .td-pvp-pass-overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 5;
+      display: none;
+      place-items: center;
+      padding: 16px;
+      background: rgba(3, 8, 19, 0.78);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+    .td-pvp-pass-overlay.show { display: grid; }
+    .td-pvp-pass-card {
+      width: min(460px, 100%);
+      padding: 18px;
+      border-radius: 20px;
+      border: 1px solid rgba(255,255,255,0.24);
+      background: linear-gradient(180deg, rgba(38, 57, 94, 0.98), rgba(13, 20, 35, 0.98));
+      box-shadow: 0 22px 70px rgba(0,0,0,0.55);
+      text-align: center;
+    }
+    .td-pvp-pass-card h3 {
+      margin: 0 0 8px;
+      font-size: 22px;
+      color: #fff;
+      font-weight: 1000;
+    }
+    .td-pvp-pass-card p {
+      margin: 0 0 14px;
+      color: rgba(255,255,255,0.82);
+      font-size: 13.5px;
+      line-height: 1.55;
+      font-weight: 780;
+    }
+    .td-pvp-entry-btn {
+      background:
+        radial-gradient(circle at 50% 0%, rgba(255,255,255,0.25), rgba(255,255,255,0.02) 46%),
+        linear-gradient(180deg, rgba(141, 84, 255, 0.96), rgba(50, 28, 118, 0.98)) !important;
+      border-color: rgba(220, 185, 255, 0.92) !important;
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.34),
+        inset 0 -6px 16px rgba(0,0,0,0.28),
+        0 0 22px rgba(176, 132, 255, 0.34),
+        0 7px 0 rgba(0,0,0,0.28),
+        0 12px 22px rgba(0,0,0,0.40) !important;
+    }
+
+    .td-pvp-online-card {
+      border-color: rgba(83, 211, 127, 0.20);
+      background: linear-gradient(180deg, rgba(83,211,127,0.070), rgba(255,255,255,0.030));
+    }
+    .td-pvp-online-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto auto;
+      gap: 5px;
+      align-items: center;
+    }
+    .td-pvp-room-input {
+      min-height: 34px;
+      min-width: 0;
+      padding: 7px 9px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.18);
+      outline: none;
+      color: #fff;
+      background: rgba(4, 8, 16, 0.46);
+      font: 900 13px/1.2 inherit;
+      text-transform: uppercase;
+    }
+    .td-pvp-room-input:focus {
+      border-color: rgba(255,209,102,0.72);
+      box-shadow: 0 0 0 3px rgba(255,209,102,0.14);
+    }
+    .td-pvp-online-status {
+      margin-top: 5px;
+      min-height: 20px;
+      color: #dfffe8;
+      font-size: 11.5px;
+      line-height: 1.35;
+      font-weight: 820;
+      overflow-wrap: anywhere;
+    }
+    .td-pvp-online-status.warn { color: #ffe6a7; }
+    .td-pvp-online-status.danger { color: #ffd6df; }
+    .td-pvp-online-badge {
+      color: #dfffe8;
+      border-color: rgba(83,211,127,0.42);
+    }
+    @media (max-width: 520px) {
+      .td-pvp-online-row { grid-template-columns: minmax(0, 1fr) 58px 58px; gap: 3px; }
+      .td-pvp-room-input { min-height: 31px; padding: 5px 7px; font-size: 10.5px; border-radius: 8px; }
+      .td-pvp-online-card .td-pvp-action-btn { min-height: 31px; padding: 3px; font-size: 9.5px; }
+      .td-pvp-online-status { font-size: 10px; line-height: 1.25; }
+    }
+    @media (max-width: 900px) {
+      .td-pvp-shell { height: calc(var(--app-height, 100vh) - 10px); border-radius: 16px; }
+      .td-pvp-main { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) auto; padding: 0 8px 8px; }
+      .td-pvp-board-column { min-height: 0; }
+      .td-pvp-side { min-height: 0; max-height: 245px; }
+      .td-pvp-log { max-height: 120px; }
+      .td-pvp-canvas-frame { height: 100%; }
+    }
+    @media (max-width: 520px) {
+      .td-pvp-local-modal { padding: 0; }
+      .td-pvp-shell {
+        --td-pvp-board-width: min(352px, calc(100vw - 34px), 45vh);
+        height: var(--app-height, 100vh);
+        border-radius: 0;
+        border: 0;
+        gap: 5px;
+      }
+      .td-pvp-topbar { padding: 6px 6px 0; grid-template-columns: minmax(0, 1fr) auto; }
+      .td-pvp-title { font-size: 13px; }
+      .td-pvp-pill { font-size: 9.5px; padding: 3px 5px; }
+      .td-pvp-top-btn { min-height: 30px; padding: 5px 8px; font-size: 10.5px; border-radius: 9px; }
+      .td-pvp-close-btn { min-height: 30px; width: 34px; border-radius: 9px; }
+      .td-pvp-main {
+        gap: 4px;
+        padding: 0 4px 4px;
+        grid-template-rows: auto minmax(0, 1fr);
+        align-content: start;
+        overflow: hidden;
+      }
+      .td-pvp-board-column {
+        width: 100%;
+        min-height: 0;
+        height: auto;
+        border-radius: 12px;
+        padding: 3px 0;
+        align-self: start;
+      }
+      .td-pvp-canvas-frame {
+        width: var(--td-pvp-board-width);
+        height: auto;
+        aspect-ratio: 9 / 12;
+        max-width: none;
+        max-height: none;
+        border-radius: 10px;
+      }
+      .td-pvp-side {
+        min-height: 0;
+        height: 100%;
+        max-height: none;
+        overflow: auto;
+        padding: 5px;
+        border-radius: 12px;
+        gap: 4px;
+      }
+      .td-pvp-mobile-tabs { display: grid; flex: 0 0 auto; }
+      .td-pvp-card { padding: 6px; border-radius: 10px; }
+      .td-pvp-card-title { margin-bottom: 5px; font-size: 11px; }
+      .td-pvp-desc { font-size: 10.5px; line-height: 1.28; }
+      .td-pvp-tab-panel { display: none; }
+      .td-pvp-tab-panel.active { display: block; }
+      .td-pvp-shop-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 3px; }
+      .td-pvp-shop-btn { min-height: 34px; padding: 3px; font-size: 9.5px; border-radius: 7px; }
+      .td-pvp-shop-btn small { display: none; }
+      .td-pvp-action-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; }
+      .td-pvp-action-btn { min-height: 34px; font-size: 10px; border-radius: 8px; padding: 4px; }
+      .td-pvp-selected { min-height: 36px; font-size: 10.5px; line-height: 1.25; }
+      .td-pvp-log { min-height: 70px; max-height: 92px; font-size: 10px; line-height: 1.28; }
+      .td-pvp-pass-card { padding: 14px; border-radius: 16px; }
+      .td-pvp-pass-card h3 { font-size: 19px; }
+      .td-pvp-pass-card p { font-size: 12px; }
+    }
+
+    /* 联机界面紧凑修正：隐藏冗余标题、强化金币、联机后收起房间卡片。 */
+    .td-pvp-title { display: none !important; }
+    #tdPvpP1Gold,
+    #tdPvpP2Gold {
+      min-height: 28px;
+      padding: 5px 10px;
+      font-size: 14px;
+      letter-spacing: 0.02em;
+      border-width: 1.5px;
+      box-shadow: 0 0 16px rgba(255, 209, 102, 0.12), inset 0 0 0 1px rgba(255,255,255,0.06);
+    }
+    #tdPvpP1Gold {
+      background: linear-gradient(180deg, rgba(101,209,255,0.24), rgba(24,72,124,0.34));
+      border-color: rgba(101,209,255,0.70);
+    }
+    #tdPvpP2Gold {
+      background: linear-gradient(180deg, rgba(255,106,132,0.24), rgba(118,36,56,0.34));
+      border-color: rgba(255,106,132,0.70);
+    }
+    .td-pvp-room-pill {
+      display: none;
+      border-color: rgba(83,211,127,0.56);
+      color: #dfffe8;
+      background: linear-gradient(180deg, rgba(83,211,127,0.18), rgba(22,70,45,0.32));
+      font-size: 11.5px;
+    }
+    .td-pvp-room-pill.show { display: inline-flex; }
+    .td-pvp-online-card.compact-hidden { display: none !important; }
+
+    @media (max-width: 520px) {
+      #tdPvpP1Gold,
+      #tdPvpP2Gold { min-height: 25px; padding: 4px 7px; font-size: 11.5px; }
+      .td-pvp-room-pill { font-size: 9.5px; padding: 3px 5px; }
+      .td-pvp-title-line { gap: 4px; }
+    }
+
+
+
+    /* PvP 联机设置弹窗、回合提交栏、顶部两行信息 */
+    .td-pvp-shell { position: relative; }
+    .td-pvp-topbar {
+      grid-template-columns: minmax(0, 1fr) !important;
+      grid-template-rows: auto auto;
+      padding-bottom: 3px;
+    }
+    .td-pvp-top-actions { display: none !important; }
+    #tdPvpPhasePill { display: none !important; }
+    .td-pvp-info-line {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      align-items: center;
+      color: rgba(255,255,255,0.86);
+      font-size: 11px;
+      line-height: 1.2;
+      font-weight: 900;
+      padding: 0 2px;
+      min-height: 17px;
+    }
+    .td-pvp-info-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 7px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.13);
+      background: rgba(255,255,255,0.045);
+      white-space: nowrap;
+    }
+    .td-pvp-setup-overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 9;
+      display: none;
+      place-items: center;
+      padding: max(10px, env(safe-area-inset-top)) 10px max(10px, env(safe-area-inset-bottom));
+      background:
+        radial-gradient(circle at 22% 10%, rgba(101,209,255,0.22), transparent 34%),
+        radial-gradient(circle at 82% 15%, rgba(255,106,132,0.18), transparent 34%),
+        rgba(3,8,19,0.88);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+    .td-pvp-setup-overlay.show { display: grid; }
+    .td-pvp-setup-panel {
+      width: min(440px, calc(100vw - 24px));
+      max-height: calc(var(--app-height, 100vh) - 24px);
+      overflow: auto;
+      padding: 16px;
+      border-radius: 20px;
+      border: 1px solid rgba(255,255,255,0.22);
+      background: linear-gradient(180deg, rgba(33,49,79,0.98), rgba(11,18,32,0.98));
+      box-shadow: 0 24px 80px rgba(0,0,0,0.58), inset 0 0 0 1px rgba(255,255,255,0.05);
+    }
+    .td-pvp-setup-title {
+      margin: 0 0 12px;
+      color: #fff;
+      font-size: 22px;
+      line-height: 1.18;
+      font-weight: 1000;
+      text-align: center;
+      letter-spacing: 0.04em;
+    }
+    .td-pvp-lobby-row {
+      display: grid;
+      grid-template-columns: minmax(96px, 128px) minmax(0, 1fr) minmax(0, 1fr);
+      gap: 6px;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .td-pvp-lobby-row .td-pvp-room-input {
+      width: 100%;
+      text-align: center;
+      letter-spacing: 0.10em;
+      font-size: 14px;
+    }
+    .td-pvp-lobby-table {
+      width: 100%;
+      border-collapse: collapse;
+      overflow: hidden;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,0.13);
+      background: rgba(255,255,255,0.045);
+      margin: 8px 0 10px;
+      color: rgba(255,255,255,0.92);
+      font-size: 13px;
+    }
+    .td-pvp-lobby-table th,
+    .td-pvp-lobby-table td {
+      padding: 9px 10px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      text-align: left;
+    }
+    .td-pvp-lobby-table tr:last-child th,
+    .td-pvp-lobby-table tr:last-child td { border-bottom: 0; }
+    .td-pvp-lobby-table th { width: 58px; color: #ffd166; font-weight: 1000; }
+    .td-pvp-lobby-name-cell { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .td-pvp-mini-btn {
+      min-height: 28px;
+      padding: 4px 9px;
+      border: 0;
+      border-radius: 999px;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 1000;
+      background: linear-gradient(180deg, #ff6381, #ba2544);
+      box-shadow: 0 2px 0 rgba(0,0,0,0.25);
+    }
+    .td-pvp-lobby-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .td-pvp-lobby-status {
+      min-height: 22px;
+      color: #ffe6a7;
+      font-size: 12.5px;
+      line-height: 1.35;
+      font-weight: 850;
+      overflow-wrap: anywhere;
+    }
+    .td-pvp-lobby-status.good { color: #dfffe8; }
+    .td-pvp-lobby-status.danger { color: #ffd6df; }
+    .td-pvp-round-submit-bar {
+      position: absolute;
+      left: 4px;
+      right: 4px;
+      top: calc((100% / 12) * 4 + 4px);
+      z-index: 4;
+      min-height: 42px;
+      display: none;
+      grid-template-columns: minmax(0, 1fr) auto auto;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 7px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,209,102,0.38);
+      background: linear-gradient(180deg, rgba(7,20,42,0.88), rgba(3,9,20,0.88));
+      box-shadow: 0 8px 22px rgba(0,0,0,0.38), inset 0 0 0 1px rgba(255,255,255,0.05);
+      pointer-events: auto;
+    }
+    .td-pvp-round-submit-bar.show { display: grid; }
+    .td-pvp-round-statuses {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      min-width: 0;
+      color: rgba(255,255,255,0.92);
+      font-size: 10.5px;
+      line-height: 1.15;
+      font-weight: 1000;
+    }
+    .td-pvp-round-status-chip {
+      padding: 4px 6px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.13);
+      background: rgba(255,255,255,0.07);
+      white-space: nowrap;
+    }
+    .td-pvp-round-status-chip.done { color: #dfffe8; border-color: rgba(83,211,127,0.48); }
+    .td-pvp-round-status-chip.left { color: #ffd6df; border-color: rgba(255,99,129,0.48); }
+    .td-pvp-round-submit-btn,
+    .td-pvp-round-magnet-btn {
+      min-height: 32px;
+      padding: 5px 10px;
+      border: 0;
+      border-radius: 999px;
+      color: #101827;
+      font-size: 12px;
+      line-height: 1;
+      font-weight: 1000;
+      background: linear-gradient(180deg, #ffd166, #c67a06);
+      box-shadow: 0 3px 0 rgba(0,0,0,0.28), 0 0 16px rgba(255,209,102,0.22);
+      white-space: nowrap;
+    }
+    .td-pvp-round-magnet-btn {
+      color: #ffffff;
+      background: linear-gradient(180deg, #a671ff, #6530c5);
+      box-shadow: 0 3px 0 rgba(0,0,0,0.28), 0 0 16px rgba(166,113,255,0.25);
+    }
+    .td-pvp-round-submit-btn:disabled,
+    .td-pvp-round-magnet-btn:disabled { opacity: .48; filter: grayscale(.25); }
+    .td-pvp-gameover-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .td-pvp-gameover-actions.hidden { display: none; }
+    .td-pvp-shop-grid.is-hidden { display: none !important; }
+    .td-pvp-upgrade-panel { display: none; gap: 6px; }
+    .td-pvp-upgrade-panel.active { display: grid; }
+    .td-pvp-upgrade-info {
+      grid-column: 1 / -1;
+      color: #ffe6a7;
+      font-size: 11.5px;
+      line-height: 1.35;
+      font-weight: 850;
+      margin-bottom: 2px;
+    }
+
+    @media (max-width: 520px) {
+      .td-pvp-topbar { padding: 4px 5px 0; gap: 3px; }
+      .td-pvp-info-line { font-size: 9.5px; gap: 3px; min-height: 14px; }
+      .td-pvp-info-chip { padding: 2px 5px; }
+      .td-pvp-setup-panel { padding: 12px; border-radius: 16px; }
+      .td-pvp-setup-title { font-size: 19px; margin-bottom: 10px; }
+      .td-pvp-lobby-row { grid-template-columns: 104px 1fr 1fr; gap: 4px; }
+      .td-pvp-lobby-row .td-pvp-action-btn { min-height: 34px; font-size: 10px; }
+      .td-pvp-lobby-table { font-size: 12px; }
+      .td-pvp-lobby-table th, .td-pvp-lobby-table td { padding: 8px; }
+      .td-pvp-round-submit-bar { min-height: 38px; padding: 4px 5px; top: calc((100% / 12) * 4 + 3px); }
+      .td-pvp-round-submit-btn, .td-pvp-round-magnet-btn { min-height: 29px; padding: 4px 7px; font-size: 10.5px; }
+      .td-pvp-round-statuses { font-size: 9.4px; gap: 3px; }
+      .td-pvp-round-status-chip { padding: 3px 5px; }
+    }
+
+
+  </style>
+
+  <div class="td-pvp-local-modal hidden" id="tdPvpLocalModal" role="dialog" aria-modal="true" aria-hidden="true" data-no-i18n="true">
+    <section class="td-pvp-shell">
+      <div class="td-pvp-setup-overlay show" id="tdPvpSetupOverlay" aria-hidden="false">
+        <div class="td-pvp-setup-panel">
+          <h2 class="td-pvp-setup-title">联机设置</h2>
+          <div class="td-pvp-lobby-row">
+            <input class="td-pvp-room-input" id="tdPvpLobbyRoomCodeInput" maxlength="6" placeholder="房间号">
+            <button class="td-pvp-action-btn good" id="tdPvpLobbyCreateCancelBtn" type="button">创建房间</button>
+            <button class="td-pvp-action-btn warn" id="tdPvpLobbyJoinBtn" type="button">加入房间</button>
+          </div>
+          <table class="td-pvp-lobby-table" aria-label="房间玩家状态">
+            <tbody>
+              <tr><th>P1</th><td><span id="tdPvpLobbyP1Name">空白</span></td></tr>
+              <tr><th>P2</th><td><div class="td-pvp-lobby-name-cell"><span id="tdPvpLobbyP2Name">空白</span><button class="td-pvp-mini-btn" id="tdPvpLobbyLeaveBtn" type="button">离开</button></div></td></tr>
+            </tbody>
+          </table>
+          <div class="td-pvp-lobby-status" id="tdPvpLobbyStatus">创建房间后把 6 位房间号发给对方，或输入房间号加入。</div>
+          <div class="td-pvp-lobby-actions">
+            <button class="td-pvp-action-btn good" id="tdPvpLobbyStartBtn" type="button">开始决斗</button>
+            <button class="td-pvp-action-btn warn" id="tdPvpLobbyLocalBtn" type="button">本地双人</button>
+          </div>
+        </div>
+      </div>
+      <div class="td-pvp-topbar">
+        <div class="td-pvp-title-line">
+          <span class="td-pvp-title">本地双人对战 · 手机上下版</span>
+          <span class="td-pvp-pill" id="tdPvpRoundPill">第 1 回合</span>
+          <span class="td-pvp-pill" id="tdPvpPhasePill">玩家1布置</span>
+          <span class="td-pvp-pill p1" id="tdPvpP1Gold">P1 60金</span>
+          <span class="td-pvp-pill p2" id="tdPvpP2Gold">P2 60金</span>
+          <span class="td-pvp-pill" id="tdPvpTimerText">准备中</span>
+          <span class="td-pvp-pill td-pvp-room-pill" id="tdPvpRoomTopPill">房间 ---- · P?</span>
+        </div>
+        <div class="td-pvp-info-line" id="tdPvpInfoLine"><span class="td-pvp-info-chip">P1 玩家1</span><span class="td-pvp-info-chip">P2 玩家2</span><span class="td-pvp-info-chip">本地双人</span></div>
+        <div class="td-pvp-top-actions">
+          <button class="td-pvp-top-btn good" id="tdPvpQuickEndBtn" type="button">完成</button>
+          <button class="td-pvp-close-btn" id="tdPvpCloseBtn" type="button" aria-label="关闭">×</button>
+        </div>
+      </div>
+      <div class="td-pvp-main">
+        <div class="td-pvp-board-column">
+          <div class="td-pvp-canvas-frame" id="tdPvpCanvasFrame">
+            <canvas id="tdPvpCanvas" aria-label="本地双人对战棋盘"></canvas>
+            <div class="td-pvp-round-submit-bar" id="tdPvpRoundSubmitBar">
+              <div class="td-pvp-round-statuses">
+                <span class="td-pvp-round-status-chip" id="tdPvpRoundStatusP1">P1 待提交</span>
+                <span class="td-pvp-round-status-chip" id="tdPvpRoundStatusP2">P2 待提交</span>
+              </div>
+              <button class="td-pvp-round-magnet-btn" id="tdPvpRoundMagnetBtn" type="button">吸铁石9金</button>
+              <button class="td-pvp-round-submit-btn" id="tdPvpRoundSubmitBtn" type="button">完成本回合</button>
+            </div>
+            <div class="td-pvp-pass-overlay" id="tdPvpPassOverlay">
+              <div class="td-pvp-pass-card">
+                <h3 id="tdPvpPassTitle">交给下一位玩家</h3>
+                <p id="tdPvpPassText">请确认后继续。</p>
+                <button class="td-pvp-action-btn good" id="tdPvpPassBtn" type="button">继续</button>
+                <div class="td-pvp-gameover-actions hidden" id="tdPvpGameOverActions">
+                  <button class="td-pvp-action-btn good" id="tdPvpPlayAgainBtn" type="button">再来一局</button>
+                  <button class="td-pvp-action-btn danger" id="tdPvpGameOverExitBtn" type="button">退出游戏</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <aside class="td-pvp-side">
+          <div class="td-pvp-mobile-tabs" id="tdPvpMobileTabs" aria-label="对战操作分页">
+            <button class="td-pvp-tab-btn active" type="button" data-pvp-tab="tower">防御塔</button>
+            <button class="td-pvp-tab-btn" type="button" data-pvp-tab="monster">怪物</button>
+            <button class="td-pvp-tab-btn" type="button" data-pvp-tab="action">操作</button>
+            <button class="td-pvp-tab-btn" type="button" data-pvp-tab="log">记录</button>
+          </div>
+          <div class="td-pvp-card td-pvp-online-card" id="tdPvpOnlineCard">
+            <div class="td-pvp-card-title"><span>房间联机</span><span id="tdPvpOnlineModeText">离线验证</span></div>
+            <div class="td-pvp-online-row">
+              <input class="td-pvp-room-input" id="tdPvpRoomCodeInput" maxlength="8" placeholder="房间号">
+              <button class="td-pvp-action-btn good" id="tdPvpCreateRoomBtn" type="button">创建</button>
+              <button class="td-pvp-action-btn warn" id="tdPvpJoinRoomBtn" type="button">加入</button>
+            </div>
+            <div class="td-pvp-online-status warn" id="tdPvpOnlineStatus">第二阶段：D1 + Worker 房间号联机。创建或加入房间后，各自只操作自己下方半区。</div>
+          </div>
+          <div class="td-pvp-card td-pvp-tab-panel active" data-pvp-panel="tower">
+            <div class="td-pvp-card-title"><span>防御塔</span><span id="tdPvpActiveTitle">玩家1在下方</span></div>
+            <div class="td-pvp-shop-grid" id="tdPvpTowerShop"></div>
+          </div>
+          <div class="td-pvp-card td-pvp-tab-panel" data-pvp-panel="monster">
+            <div class="td-pvp-card-title"><span>怪物</span><span>出兵区自由摆放</span></div>
+            <div class="td-pvp-shop-grid" id="tdPvpMonsterShop"></div>
+          </div>
+          <div class="td-pvp-card td-pvp-tab-panel" data-pvp-panel="action">
+            <div class="td-pvp-card-title"><span>操作</span><span>当前选择</span></div>
+            <div class="td-pvp-selected" id="tdPvpSelectedInfo">选择防御塔或怪物。</div>
+            <p class="td-pvp-desc" id="tdPvpRuleText">当前操作方始终显示在下方；己方领地分近场/远场。冰块只阻碍怪物，不阻碍防御塔射线。</p>
+            <div class="td-pvp-action-grid" style="margin-top:7px;">
+              <button class="td-pvp-action-btn good" id="tdPvpEndTurnBtn" type="button">完成布置</button>
+              <button class="td-pvp-action-btn warn" id="tdPvpUndoBtn" type="button">撤销一步</button>
+              <button class="td-pvp-action-btn danger" id="tdPvpRemoveBtn" type="button">拆除/取消</button>
+              <button class="td-pvp-action-btn danger" id="tdPvpResetBtn" type="button">重新开局</button>
+              <button class="td-pvp-action-btn danger" id="tdPvpExitGameBtn" type="button">退出游戏</button>
+            </div>
+          </div>
+          <div class="td-pvp-card td-pvp-tab-panel" data-pvp-panel="log">
+            <div class="td-pvp-card-title"><span>战斗记录</span><span>验证反馈</span></div>
+            <div class="td-pvp-log" id="tdPvpLog"></div>
+          </div>
+        </aside>
+      </div>
+    </section>
+  </div>
+
+  <script id="tdPvpLocalScript">
+    (function () {
+      if (window.__tdPvpLocalHotseatInstalled) return;
+      window.__tdPvpLocalHotseatInstalled = true;
+
+      // 本地双人对战的全部核心数值集中在这里，后续平衡测试优先改本对象。
+      const CONFIG = {
+        cols: 9,
+        rows: 12,
+        cell: 60,
+        lanes: [2, 4, 6],
+        iceRowMin: 5,
+        iceRowMax: 6,
+        spawnRows: { 1: [7, 11], 2: [0, 4] },
+        towerRows: { 1: [7, 11], 2: [0, 4] },
+        nearFieldSize: { rows: 3, cols: 5 },
+        treasureCells: { 1: { col: 4, row: 10 }, 2: { col: 4, row: 1 } },
+        economy: {
+          startGold: 60,
+          baseIncome: 25,
+          incomeGrowthPerRound: 3,
+          killRewardRate: 0.25,
+          crossLineReward: 1,
+          deepInvadeReward: 2,
+          treasurePickupReward: 8,
+          magnetCost: 9,
+          sellRefundRate: 0.50
+        },
+        limits: {
+          // 建塔 + 升级 + 进化共用这个限制。改这里即可测试 2、3、4 等版本。
+          towerActionsPerRound: 3,
+          // 设为 Infinity 表示暂不限制；以后要限制怪物数量，改成具体数字即可。
+          monsterPlacementsPerRound: Infinity
+        },
+        battle: {
+          maxSettleTime: 180,
+          fixedDt: 0.05,
+          carrySpeedMultiplier: 0.65,
+          // PvP怪物总血量倍率，后续平衡只改这里即可。
+          monsterHpMultiplier: 1.3,
+          pickupRadius: 27,
+          treasureDropProtectionDuration: 2.2,
+          treasureDropProtectionRadius: 45,
+          finishRadius: 22
+        },
+        towers: {
+          normal: {
+            name: "普通塔", short: "普", sprite: "normal", price: 12, range: 118, dps: 20, color: "#65d1ff", desc: "稳定单体输出",
+            upgrade: { maxLevel: 3, baseCost: 9, costGrowth: 1.45, dpsMultiplierPerLevel: 1.28, rangeBonusPerLevel: 5 },
+            evolutions: {
+              rapid: { label: "进化A", name: "连射塔", short: "连", sprite: "rapid", cost: 20, dpsMultiplier: 1.55, rangeMultiplier: 0.94, desc: "更高持续输出" },
+              pierce: { label: "进化B", name: "穿透塔", short: "穿", sprite: "pierce", cost: 22, dpsMultiplier: 1.22, rangeMultiplier: 1.10, pierce: true, desc: "远一点，单体强化" }
+            }
+          },
+          slow: {
+            name: "减速塔", short: "冰", sprite: "slow", price: 14, range: 116, dps: 8, slow: 0.55, color: "#85f0c6", desc: "低伤害，命中后减速",
+            upgrade: { maxLevel: 3, baseCost: 10, costGrowth: 1.45, dpsMultiplierPerLevel: 1.18, rangeBonusPerLevel: 5, slowBonusPerLevel: 0.05, minSlow: 0.40 },
+            evolutions: {
+              frost: { label: "进化A", name: "冰霜塔", short: "霜", sprite: "frost", cost: 20, dpsMultiplier: 1.15, rangeMultiplier: 1.08, slowOverride: 0.35, desc: "强减速" }
+            }
+          },
+          sniper: {
+            name: "远程塔", short: "远", sprite: "sniper", price: 18, range: 190, dps: 18, color: "#c4d7ff", desc: "远射程单体塔",
+            upgrade: { maxLevel: 3, baseCost: 13, costGrowth: 1.48, dpsMultiplierPerLevel: 1.24, rangeBonusPerLevel: 11 },
+            evolutions: {
+              railgun: { label: "进化A", name: "轨道狙击塔", short: "轨", sprite: "railgun", cost: 27, dpsMultiplier: 1.55, rangeMultiplier: 1.10, desc: "高单体远射程" },
+              guardian: { label: "进化B", name: "守望塔", short: "望", sprite: "guardian", cost: 25, dpsMultiplier: 1.18, rangeMultiplier: 1.30, carrierBonus: 1.35, desc: "克制搬宝怪" }
+            }
+          }
+        },
+        monsters: {
+          normal: { name: "普通怪", short: "普", sprite: "normal", price: 6, hp: 100, speed: 52, color: "#65d1ff", desc: "基础推进单位" },
+          runner: { name: "急行怪", short: "快", sprite: "runner", price: 8, hp: 70, speed: 82, color: "#53d37f", desc: "速度快，怕减速" },
+          tank: { name: "肉盾怪", short: "盾", sprite: "tank", price: 14, hp: 260, speed: 36, color: "#ff9f43", desc: "血厚，掩护其他怪" },
+          camo: { name: "伪装怪", short: "伪", sprite: "normalCamo", price: 12, hp: 90, speed: 54, color: "#b084ff", desc: "普通塔不会主动锁定" },
+          probe: { name: "试探怪", short: "探", sprite: "scout", price: 5, hp: 55, speed: 64, color: "#f6e05e", desc: "便宜，用来观察火力" },
+          boss: { name: "Boss怪", short: "B", sprite: "boss", price: 34, hp: 650, speed: 28, color: "#ff4d6d", desc: "高血量非生产型Boss，适合强行推进" }
+        }
+      };
+
+      const TOWER_TYPES = CONFIG.towers;
+      const MONSTER_TYPES = CONFIG.monsters;
+
+      function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+      function dist(ax, ay, bx, by) { return Math.hypot(ax - bx, ay - by); }
+      function playerName(owner) { return owner === 1 ? "玩家1" : "玩家2"; }
+      function enemyOf(owner) { return owner === 1 ? 2 : 1; }
+      function money(value) { return `${Math.floor(value)}金`; }
+      function isFiniteLimit(value) { return Number.isFinite(value); }
+
+      class LocalPvpGame {
+        constructor() {
+          this.modal = document.getElementById("tdPvpLocalModal");
+          this.canvas = document.getElementById("tdPvpCanvas");
+          this.canvasFrame = document.getElementById("tdPvpCanvasFrame");
+          this.ctx = this.canvas.getContext("2d");
+          this.roundPill = document.getElementById("tdPvpRoundPill");
+          this.phasePill = document.getElementById("tdPvpPhasePill");
+          this.p1Gold = document.getElementById("tdPvpP1Gold");
+          this.p2Gold = document.getElementById("tdPvpP2Gold");
+          this.activeTitle = document.getElementById("tdPvpActiveTitle");
+          this.ruleText = document.getElementById("tdPvpRuleText");
+          this.towerShop = document.getElementById("tdPvpTowerShop");
+          this.monsterShop = document.getElementById("tdPvpMonsterShop");
+          this.mobileTabs = document.getElementById("tdPvpMobileTabs");
+          this.towerTabBtn = document.querySelector('#tdPvpMobileTabs [data-pvp-tab="tower"]');
+          this.towerCard = document.querySelector('.td-pvp-tab-panel[data-pvp-panel="tower"]');
+          this.towerCardTitleLabel = this.towerCard?.querySelector('.td-pvp-card-title span:first-child') || null;
+          this.selectedInfo = document.getElementById("tdPvpSelectedInfo");
+          this.endTurnBtn = document.getElementById("tdPvpEndTurnBtn");
+          this.quickEndBtn = document.getElementById("tdPvpQuickEndBtn");
+          this.undoBtn = document.getElementById("tdPvpUndoBtn");
+          this.removeBtn = document.getElementById("tdPvpRemoveBtn");
+          this.resetBtn = document.getElementById("tdPvpResetBtn");
+          this.closeBtn = document.getElementById("tdPvpCloseBtn");
+          this.logEl = document.getElementById("tdPvpLog");
+          this.timerText = document.getElementById("tdPvpTimerText");
+          this.passOverlay = document.getElementById("tdPvpPassOverlay");
+          this.passTitle = document.getElementById("tdPvpPassTitle");
+          this.passText = document.getElementById("tdPvpPassText");
+          this.passBtn = document.getElementById("tdPvpPassBtn");
+          this.onlineModeText = document.getElementById("tdPvpOnlineModeText");
+          this.onlineStatus = document.getElementById("tdPvpOnlineStatus");
+          this.onlineCard = document.getElementById("tdPvpOnlineCard");
+          this.roomTopPill = document.getElementById("tdPvpRoomTopPill");
+          this.roomCodeInput = document.getElementById("tdPvpRoomCodeInput");
+          this.createRoomBtn = document.getElementById("tdPvpCreateRoomBtn");
+          this.joinRoomBtn = document.getElementById("tdPvpJoinRoomBtn");
+          this.setupOverlay = document.getElementById("tdPvpSetupOverlay");
+          this.lobbyRoomCodeInput = document.getElementById("tdPvpLobbyRoomCodeInput");
+          this.lobbyCreateCancelBtn = document.getElementById("tdPvpLobbyCreateCancelBtn");
+          this.lobbyJoinBtn = document.getElementById("tdPvpLobbyJoinBtn");
+          this.lobbyP1Name = document.getElementById("tdPvpLobbyP1Name");
+          this.lobbyP2Name = document.getElementById("tdPvpLobbyP2Name");
+          this.lobbyLeaveBtn = document.getElementById("tdPvpLobbyLeaveBtn");
+          this.lobbyStartBtn = document.getElementById("tdPvpLobbyStartBtn");
+          this.lobbyLocalBtn = document.getElementById("tdPvpLobbyLocalBtn");
+          this.lobbyStatus = document.getElementById("tdPvpLobbyStatus");
+          this.infoLine = document.getElementById("tdPvpInfoLine");
+          this.roundSubmitBar = document.getElementById("tdPvpRoundSubmitBar");
+          this.roundStatusP1 = document.getElementById("tdPvpRoundStatusP1");
+          this.roundStatusP2 = document.getElementById("tdPvpRoundStatusP2");
+          this.roundSubmitBtn = document.getElementById("tdPvpRoundSubmitBtn");
+          this.roundMagnetBtn = document.getElementById("tdPvpRoundMagnetBtn");
+          this.exitGameBtn = document.getElementById("tdPvpExitGameBtn");
+          this.gameOverActions = document.getElementById("tdPvpGameOverActions");
+          this.playAgainBtn = document.getElementById("tdPvpPlayAgainBtn");
+          this.gameOverExitBtn = document.getElementById("tdPvpGameOverExitBtn");
+          this.online = this.createEmptyOnlineState();
+          this.latestRoom = null;
+          this.lobbyAlertedCanceled = false;
+          this.worldW = CONFIG.cols * CONFIG.cell;
+          this.worldH = CONFIG.rows * CONFIG.cell;
+          this.nextId = 1;
+          this.effects = [];
+          this.pendingPassAction = null;
+          this.animationStarted = false;
+          this.activeTab = "tower";
+          this.selected = { kind: "none", type: null };
+          this.selectedCell = null;
+          this.selectedTowerId = null;
+          this.installShop();
+          this.installUpgradePanel();
+          this.bindEvents();
+          this.reset();
+          this.resizeCanvas();
+        }
+
+        bindEvents() {
+          window.addEventListener("resize", () => this.resizeCanvas());
+          this.canvas.addEventListener("click", (event) => this.handleCanvasClick(event));
+          this.endTurnBtn.addEventListener("click", () => this.finishCurrentPlacement());
+          this.quickEndBtn.addEventListener("click", () => this.finishCurrentPlacement());
+          this.undoBtn.addEventListener("click", () => this.undoLastAction());
+          this.removeBtn.addEventListener("click", () => this.selectRemoveMode());
+          this.resetBtn.addEventListener("click", () => {
+            if (this.online?.enabled) {
+              if (confirm("是否退出当前联机房间并重开本地验证局？")) {
+                this.stopOnlinePolling();
+                this.online = this.createEmptyOnlineState();
+                this.setOnlineStatus("已退出联机房间，当前为离线本地验证。", "warn");
+                this.reset();
+              }
+              return;
+            }
+            if (confirm("是否重新开始本地双人对战？")) this.reset();
+          });
+          this.closeBtn.addEventListener("click", () => this.close());
+          this.passBtn.addEventListener("click", () => {
+            const action = this.pendingPassAction;
+            this.pendingPassAction = null;
+            this.passOverlay.classList.remove("show");
+            if (typeof action === "function") action();
+          });
+          this.mobileTabs.addEventListener("click", (event) => {
+            const btn = event.target.closest("[data-pvp-tab]");
+            if (!btn) return;
+            this.setTab(btn.dataset.pvpTab || "tower");
+          });
+          this.createRoomBtn?.addEventListener("click", () => this.createOnlineRoom());
+          this.joinRoomBtn?.addEventListener("click", () => this.joinOnlineRoom());
+          this.roomCodeInput?.addEventListener("input", () => {
+            this.roomCodeInput.value = String(this.roomCodeInput.value || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8);
+          });
+          this.lobbyRoomCodeInput?.addEventListener("input", () => {
+            this.lobbyRoomCodeInput.value = String(this.lobbyRoomCodeInput.value || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
+          });
+          this.lobbyCreateCancelBtn?.addEventListener("click", () => this.handleLobbyCreateCancel());
+          this.lobbyJoinBtn?.addEventListener("click", () => this.joinOnlineRoom(true));
+          this.lobbyLeaveBtn?.addEventListener("click", () => this.leaveOnlineRoom(false));
+          this.lobbyStartBtn?.addEventListener("click", () => this.startOnlineDuel());
+          this.lobbyLocalBtn?.addEventListener("click", () => this.startLocalDuel());
+          this.roundSubmitBtn?.addEventListener("click", () => this.finishCurrentPlacement());
+          this.roundMagnetBtn?.addEventListener("click", () => this.usePvpMagnet());
+          this.exitGameBtn?.addEventListener("click", () => this.requestExitGame());
+          this.playAgainBtn?.addEventListener("click", () => this.playAgain());
+          this.gameOverExitBtn?.addEventListener("click", () => this.requestExitGame());
+        }
+
+        installShop() {
+          this.towerShop.innerHTML = "";
+          for (const [key, cfg] of Object.entries(TOWER_TYPES)) {
+            const btn = document.createElement("button");
+            btn.className = "td-pvp-shop-btn tower";
+            btn.type = "button";
+            btn.dataset.kind = "tower";
+            btn.dataset.type = key;
+            btn.innerHTML = `${cfg.name} ${cfg.price}<small>${cfg.desc}</small>`;
+            btn.addEventListener("click", () => this.handleTowerShopClick(key));
+            this.towerShop.appendChild(btn);
+          }
+          this.monsterShop.innerHTML = "";
+          for (const [key, cfg] of Object.entries(MONSTER_TYPES)) {
+            const btn = document.createElement("button");
+            btn.className = "td-pvp-shop-btn monster";
+            btn.type = "button";
+            btn.dataset.kind = "monster";
+            btn.dataset.type = key;
+            btn.innerHTML = `${cfg.name} ${cfg.price}<small>${cfg.desc}</small>`;
+            btn.addEventListener("click", () => this.handleMonsterShopClick(key));
+            this.monsterShop.appendChild(btn);
+          }
+        }
+
+        installUpgradePanel() {
+          this.upgradePanel = document.createElement("div");
+          this.upgradePanel.id = "tdPvpTowerUpgradePanel";
+          this.upgradePanel.className = "td-pvp-upgrade-panel";
+          this.upgradePanel.innerHTML = `
+            <div class="td-pvp-upgrade-info" id="tdPvpTowerUpgradeInfo">点击己方防御塔后可升级或进化。</div>
+            <button class="td-pvp-action-btn good" id="tdPvpTowerUpgradeBtn" type="button">升级</button>
+            <button class="td-pvp-action-btn warn" id="tdPvpTowerEvolveABtn" type="button">进化A</button>
+            <button class="td-pvp-action-btn warn" id="tdPvpTowerEvolveBBtn" type="button">进化B</button>
+            <button class="td-pvp-action-btn danger" id="tdPvpTowerSellBtn" type="button">出售</button>
+          `;
+          this.towerCard?.appendChild(this.upgradePanel);
+          this.upgradeInfo = this.upgradePanel.querySelector("#tdPvpTowerUpgradeInfo");
+          this.upgradeBtn = this.upgradePanel.querySelector("#tdPvpTowerUpgradeBtn");
+          this.evolveABtn = this.upgradePanel.querySelector("#tdPvpTowerEvolveABtn");
+          this.evolveBBtn = this.upgradePanel.querySelector("#tdPvpTowerEvolveBBtn");
+          this.towerSellBtn = this.upgradePanel.querySelector("#tdPvpTowerSellBtn");
+          this.upgradeBtn.addEventListener("click", () => this.upgradeSelectedTower());
+          this.evolveABtn.addEventListener("click", () => this.evolveSelectedTower(0));
+          this.evolveBBtn.addEventListener("click", () => this.evolveSelectedTower(1));
+          this.towerSellBtn.addEventListener("click", () => this.sellSelectedTower());
+        }
+
+        setTab(tab) {
+          this.activeTab = tab || "tower";
+          document.querySelectorAll("#tdPvpMobileTabs [data-pvp-tab]").forEach(btn => {
+            btn.classList.toggle("active", btn.dataset.pvpTab === this.activeTab);
+          });
+          document.querySelectorAll(".td-pvp-tab-panel").forEach(panel => {
+            panel.classList.toggle("active", panel.dataset.pvpPanel === this.activeTab);
+          });
+        }
+
+        createEmptyOnlineState() {
+          return {
+            enabled: false,
+            roomCode: "",
+            playerToken: "",
+            seat: 0,
+            pollTimer: null,
+            placementSubmitted: false,
+            resultSubmitted: false,
+            settlementStartedRound: null,
+            lastRoomStatus: "",
+            lastSeenReadyKey: ""
+          };
+        }
+
+        setOnlineStatus(text, type = "warn") {
+          if (!this.onlineStatus) return;
+          this.onlineStatus.textContent = text || "";
+          this.onlineStatus.classList.toggle("warn", type === "warn");
+          this.onlineStatus.classList.toggle("danger", type === "danger");
+        }
+
+        getOnlineDisplayName() {
+          try {
+            const user = typeof window.tdCloudGetCurrentUser === "function" ? window.tdCloudGetCurrentUser() : null;
+            const display = user?.displayName || user?.display_name || user?.username || "";
+            if (display) return String(display).slice(0, 18);
+          } catch (error) {}
+          return `游客${Math.floor(Math.random() * 9000 + 1000)}`;
+        }
+
+        async onlineApi(path, payload = null, method = "POST") {
+          const base = (typeof TD_CLOUD_API_BASE !== "undefined" ? TD_CLOUD_API_BASE : "https://api.lxl28.site");
+          const headers = { "Content-Type": "application/json" };
+          const token = typeof window.tdCloudGetToken === "function" ? window.tdCloudGetToken() : localStorage.getItem("treasure_td_cloud_token_v1") || "";
+          if (token) headers.Authorization = `Bearer ${token}`;
+          const options = { method, headers };
+          if (payload !== null && method !== "GET") options.body = JSON.stringify(payload);
+          const url = method === "GET" && payload ? `${base}${path}?${new URLSearchParams(payload).toString()}` : `${base}${path}`;
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), 12000);
+          try {
+            const response = await fetch(url, { ...options, signal: controller.signal });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok || data.ok === false) throw new Error(data.error || `请求失败：${response.status}`);
+            return data;
+          } finally {
+            clearTimeout(timer);
+          }
+        }
+
+
+        showSetupOverlay(show = true) {
+          if (!this.setupOverlay) return;
+          this.setupOverlay.classList.toggle("show", Boolean(show));
+          this.setupOverlay.setAttribute("aria-hidden", show ? "false" : "true");
+        }
+
+        setLobbyStatus(text, type = "warn") {
+          if (!this.lobbyStatus) return;
+          this.lobbyStatus.textContent = text || "";
+          this.lobbyStatus.classList.toggle("good", type === "good");
+          this.lobbyStatus.classList.toggle("danger", type === "danger");
+        }
+
+        startLocalDuel() {
+          if (this.online?.enabled && !confirm("是否退出当前房间，开始本地双人？")) return;
+          this.stopOnlinePolling();
+          this.online = this.createEmptyOnlineState();
+          this.latestRoom = null;
+          this.lobbyAlertedCanceled = false;
+          this.showSetupOverlay(false);
+          this.reset();
+        }
+
+        async handleLobbyCreateCancel() {
+          if (this.online?.enabled && this.online.seat === 1 && this.online.roomCode) return this.cancelOnlineRoom(false);
+          if (this.online?.enabled) return this.setLobbyStatus("当前已经在房间中。", "danger");
+          return this.createOnlineRoom();
+        }
+
+        resetToLobbyInitial(message = "创建房间后把 6 位房间号发给对方，或输入房间号加入。", type = "warn") {
+          this.stopOnlinePolling();
+          this.online = this.createEmptyOnlineState();
+          this.latestRoom = null;
+          this.lobbyAlertedCanceled = false;
+          if (this.roomCodeInput) this.roomCodeInput.value = "";
+          if (this.lobbyRoomCodeInput) this.lobbyRoomCodeInput.value = "";
+          this.phase = "lobby";
+          this.currentPlayer = 0;
+          this.showSetupOverlay(true);
+          this.setLobbyStatus(message, type);
+          this.updateLobbyUi(null);
+          this.updateUi();
+        }
+
+        prepareOnlineDuelStart(room) {
+          const savedOnline = { ...this.online, enabled: true };
+          this.showSetupOverlay(false);
+          this.reset();
+          this.online = { ...savedOnline, placementSubmitted: false, resultSubmitted: false, settlementStartedRound: null };
+          this.latestRoom = room || this.latestRoom;
+          this.round = Number(room?.round || 1);
+          this.phase = "onlinePlace";
+          this.currentPlayer = this.online.seat;
+          this.clearSelection();
+          this.setTab("tower");
+          this.log(`双方都已点击开始决斗：房间 ${this.online.roomCode} 正式开始。`);
+          this.updateUi();
+        }
+
+        updateLobbyUi(room = this.latestRoom) {
+          const players = room?.players || {};
+          const p1 = players[1] || players.p1 || {};
+          const p2 = players[2] || players.p2 || {};
+          const status = room?.status || (this.online?.enabled ? "waiting" : "idle");
+          const p1Name = p1.displayName || (this.online?.seat === 1 ? this.getOnlineDisplayName() : "空白");
+          let p2Name = p2.joined ? (p2.displayName || "玩家2") : "空白";
+          if (this.online?.enabled && this.online.seat === 1 && !p2.joined && status !== "canceled") p2Name = "等待玩家进入";
+          if (this.lobbyP1Name) this.lobbyP1Name.textContent = p1Name;
+          if (this.lobbyP2Name) this.lobbyP2Name.textContent = p2Name;
+          if (this.lobbyRoomCodeInput && this.online?.roomCode) this.lobbyRoomCodeInput.value = this.online.roomCode;
+          const isP1 = this.online?.enabled && this.online.seat === 1;
+          const isP2 = this.online?.enabled && this.online.seat === 2;
+          if (this.lobbyCreateCancelBtn) {
+            this.lobbyCreateCancelBtn.textContent = isP1 ? "取消房间" : "创建房间";
+            this.lobbyCreateCancelBtn.disabled = Boolean(this.online?.enabled && !isP1);
+          }
+          if (this.lobbyJoinBtn) this.lobbyJoinBtn.disabled = Boolean(this.online?.enabled);
+          if (this.lobbyLeaveBtn) this.lobbyLeaveBtn.style.display = isP2 ? "inline-flex" : "none";
+          const bothJoined = Boolean(this.online?.enabled && (p2.joined || isP2));
+          const ready = room?.startReady || {};
+          const myReady = this.online?.seat === 1 ? (ready[1] || ready.p1 || status === "p1_start" || status === "placing") : (ready[2] || ready.p2 || status === "p2_start" || status === "placing");
+          if (this.lobbyStartBtn) {
+            this.lobbyStartBtn.disabled = !bothJoined || status === "placing" || status === "canceled";
+            this.lobbyStartBtn.textContent = myReady ? "等待对方开始" : "开始决斗";
+          }
+        }
+
+        updateTopInfoLine() {
+          if (!this.infoLine) return;
+          const room = this.latestRoom || {};
+          const players = room.players || {};
+          const p1 = players[1] || players.p1 || {};
+          const p2 = players[2] || players.p2 || {};
+          const p1Name = p1.displayName || "玩家1";
+          const p2Name = p2.joined ? (p2.displayName || "玩家2") : "等待中";
+          const roomText = this.online?.enabled ? `房间 ${this.online.roomCode || "----"}` : "本地双人";
+          this.infoLine.innerHTML = `<span class="td-pvp-info-chip">P1 ${this.escape(p1Name)}</span><span class="td-pvp-info-chip">P2 ${this.escape(p2Name)}</span><span class="td-pvp-info-chip">${this.escape(roomText)}</span>`;
+        }
+
+        updateRoundSubmitBar() {
+          if (!this.roundSubmitBar) return;
+          const show = Boolean(this.online?.enabled && (this.phase === "onlinePlace" || this.phase === "onlineWaitOpponent"));
+          this.roundSubmitBar.classList.toggle("show", show);
+          if (!show) return;
+          const room = this.latestRoom || {};
+          const ready = room.ready || {};
+          const status = room.status || "";
+          const p1Done = Boolean(ready[1] || ready.p1 || (this.online.seat === 1 && this.online.placementSubmitted));
+          const p2Done = Boolean(ready[2] || ready.p2 || (this.online.seat === 2 && this.online.placementSubmitted));
+          const p1Left = status === "p1_left" || status === "canceled";
+          const p2Left = status === "p2_left" || status === "canceled";
+          const setChip = (el, label, done, left) => {
+            if (!el) return;
+            el.textContent = `${label} ${left ? "已离开" : done ? "已提交" : "待提交"}`;
+            el.classList.toggle("done", done && !left);
+            el.classList.toggle("left", left);
+          };
+          setChip(this.roundStatusP1, "P1", p1Done, p1Left);
+          setChip(this.roundStatusP2, "P2", p2Done, p2Left);
+          if (this.roundMagnetBtn) {
+            const cost = CONFIG.economy.magnetCost || 9;
+            this.roundMagnetBtn.textContent = `吸铁石${cost}金`;
+            this.roundMagnetBtn.disabled = !this.canUsePvpMagnet(this.online.seat || this.currentPlayer) || this.online.placementSubmitted || this.phase !== "onlinePlace";
+          }
+          if (this.roundSubmitBtn) {
+            this.roundSubmitBtn.textContent = this.online.placementSubmitted ? "已提交" : "完成本回合";
+            this.roundSubmitBtn.disabled = this.online.placementSubmitted || this.phase !== "onlinePlace";
+          }
+        }
+
+        async cancelOnlineRoom(closeAfter = false) {
+          if (!this.online?.enabled || !this.online.roomCode) return this.resetToLobbyInitial();
+          try {
+            await this.onlineApi("/api/pvp/cancel-room", { roomCode: this.online.roomCode, playerToken: this.online.playerToken });
+          } catch (error) {
+            this.setLobbyStatus(error.message || "取消房间失败。", "danger");
+            return;
+          }
+          this.resetToLobbyInitial("房间已取消。", "warn");
+          if (closeAfter) this.close();
+        }
+
+        async leaveOnlineRoom(closeAfter = false) {
+          if (!this.online?.enabled || !this.online.roomCode) return this.resetToLobbyInitial();
+          try {
+            await this.onlineApi("/api/pvp/leave-room", { roomCode: this.online.roomCode, playerToken: this.online.playerToken });
+          } catch (error) {
+            this.setLobbyStatus(error.message || "离开房间失败。", "danger");
+            return;
+          }
+          this.resetToLobbyInitial("已离开房间。", "warn");
+          if (closeAfter) this.close();
+        }
+
+        async startOnlineDuel() {
+          if (!this.online?.enabled || !this.online.roomCode) return this.setLobbyStatus("请先创建或加入房间。", "danger");
+          try {
+            this.setLobbyStatus("已点击开始决斗，等待对方开始。", "good");
+            const data = await this.onlineApi("/api/pvp/start-duel", { roomCode: this.online.roomCode, playerToken: this.online.playerToken });
+            this.handleOnlineRoom(data.room || data);
+          } catch (error) {
+            this.setLobbyStatus(error.message || "开始决斗失败。", "danger");
+          }
+        }
+
+        requestExitGame() {
+          if (this.online?.enabled) {
+            if (!confirm("是否退出当前联机对战？")) return;
+            if (this.online.seat === 1) return this.cancelOnlineRoom(true);
+            return this.leaveOnlineRoom(true);
+          }
+          if (confirm("是否退出对战并回到主界面？")) this.close();
+        }
+
+        playAgain() {
+          this.passOverlay.classList.remove("show");
+          if (this.online?.enabled) {
+            this.resetToLobbyInitial("上一局已结束。可以重新创建或加入房间再来一局。", "good");
+            return;
+          }
+          this.showSetupOverlay(false);
+          this.reset();
+        }
+
+        async createOnlineRoom() {
+          try {
+            this.setLobbyStatus("正在创建房间...", "warn");
+            const data = await this.onlineApi("/api/pvp/create-room", { displayName: this.getOnlineDisplayName(), clientVersion: "pvp_d1_phase2_v2" });
+            this.enterOnlineRoom(data, 1);
+            this.setLobbyStatus(`房间 ${data.roomCode} 已创建。把房间号发给对方。`, "good");
+          } catch (error) {
+            this.setLobbyStatus(error.message || "创建房间失败。", "danger");
+          }
+        }
+
+        async joinOnlineRoom(fromLobby = false) {
+          const code = String((fromLobby ? this.lobbyRoomCodeInput?.value : this.roomCodeInput?.value) || "").trim().toUpperCase();
+          if (!code) { this.setLobbyStatus("请输入房间号。", "danger"); return; }
+          try {
+            this.setLobbyStatus("正在加入房间...", "warn");
+            const data = await this.onlineApi("/api/pvp/join-room", { roomCode: code, displayName: this.getOnlineDisplayName(), clientVersion: "pvp_d1_phase2_v2" });
+            this.enterOnlineRoom(data, 2);
+            this.setLobbyStatus(`已加入房间 ${data.roomCode}。等待双方点击开始决斗。`, "good");
+          } catch (error) {
+            this.setLobbyStatus(error.message || "加入房间失败。", "danger");
+          }
+        }
+
+        enterOnlineRoom(data, fallbackSeat) {
+          this.stopOnlinePolling();
+          this.online = this.createEmptyOnlineState();
+          this.online.enabled = true;
+          this.online.roomCode = data.roomCode || data.code || "";
+          this.online.playerToken = data.playerToken || "";
+          this.online.seat = Number(data.seat || fallbackSeat || 1);
+          this.online.placementSubmitted = false;
+          this.online.resultSubmitted = false;
+          this.online.settlementStartedRound = null;
+          if (this.roomCodeInput) this.roomCodeInput.value = this.online.roomCode;
+          if (this.lobbyRoomCodeInput) this.lobbyRoomCodeInput.value = this.online.roomCode;
+          this.phase = "onlineLobby";
+          this.currentPlayer = 0;
+          this.showSetupOverlay(true);
+          this.log(`房间联机已启用：房间号 ${this.online.roomCode}，你是${playerName(this.online.seat)}。`);
+          this.startOnlinePolling();
+          this.updateLobbyUi(null);
+          this.updateUi();
+        }
+
+        startOnlinePolling() {
+          this.stopOnlinePolling();
+          if (!this.online.enabled) return;
+          this.online.pollTimer = setInterval(() => this.pollOnlineRoom(), 1600);
+          this.pollOnlineRoom();
+        }
+
+        stopOnlinePolling() {
+          if (this.online?.pollTimer) clearInterval(this.online.pollTimer);
+          if (this.online) this.online.pollTimer = null;
+        }
+
+        async pollOnlineRoom() {
+          if (!this.online.enabled || !this.online.roomCode || !this.online.playerToken) return;
+          try {
+            const data = await this.onlineApi("/api/pvp/room", { roomCode: this.online.roomCode, playerToken: this.online.playerToken }, "GET");
+            this.handleOnlineRoom(data.room || data);
+          } catch (error) {
+            const message = error.message || "房间同步失败。";
+            if (/房间不存在|房间已被取消|404/.test(message)) {
+              if (!this.lobbyAlertedCanceled) alert("房间已被取消！");
+              this.lobbyAlertedCanceled = true;
+              this.resetToLobbyInitial("房间已被取消！", "danger");
+              return;
+            }
+            this.setOnlineStatus(message, "danger");
+          }
+        }
+
+        handleOnlineRoom(room) {
+          if (!room || !this.online.enabled) return;
+          this.latestRoom = room;
+          const status = room.status || "waiting";
+          const players = room.players || {};
+          const p1 = players[1] || players.p1 || {};
+          const p2 = players[2] || players.p2 || {};
+          const ready = room.ready || {};
+          const readyText = `P1${ready[1] || ready.p1 ? "✓" : "…"} / P2${ready[2] || ready.p2 ? "✓" : "…"}`;
+          if (this.onlineModeText) this.onlineModeText.textContent = `房间 ${this.online.roomCode} · P${this.online.seat}`;
+          this.updateLobbyUi(room);
+          this.updateTopInfoLine();
+          this.updateRoundSubmitBar();
+
+          if (status === "canceled") {
+            if (!this.lobbyAlertedCanceled) alert("房间已被取消！");
+            this.lobbyAlertedCanceled = true;
+            this.resetToLobbyInitial("房间已被取消！", "danger");
+            return;
+          }
+
+          if (status === "p1_left" || status === "p2_left") {
+            this.setOnlineStatus(status === "p1_left" ? "P1 已离开。" : "P2 已离开。", "danger");
+            this.updateUi();
+            return;
+          }
+
+          if (["waiting", "ready_wait", "p1_start", "p2_start"].includes(status)) {
+            this.showSetupOverlay(true);
+            this.phase = "onlineLobby";
+            this.currentPlayer = 0;
+            if (status === "waiting") this.setLobbyStatus(`等待玩家进入。房间号：${this.online.roomCode}`, "warn");
+            if (status === "ready_wait") this.setLobbyStatus(`${p1.displayName || "P1"} 与 ${p2.displayName || "P2"} 已在房间中，双方点击开始决斗后开始。`, "good");
+            if (status === "p1_start" || status === "p2_start") this.setLobbyStatus("已有玩家点击开始决斗，等待另一方开始。", "good");
+            this.updateUi();
+            return;
+          }
+
+          if (status === "placing") {
+            if (this.phase === "onlineLobby" || this.setupOverlay?.classList.contains("show")) this.prepareOnlineDuelStart(room);
+            this.setOnlineStatus(`联机布置中：${readyText}。${p1.displayName || "P1"} vs ${p2.displayName || "P2"}`, "good");
+          }
+          if (status === "settling") this.setOnlineStatus(`双方已提交，正在同步结算数据。${readyText}`, "good");
+          if (status === "result_wait") this.setOnlineStatus(`结算结果对账中：${readyText}`, "warn");
+          if (status === "desync") {
+            this.phase = "onlineDesync";
+            this.currentPlayer = 0;
+            this.setOnlineStatus("双方结算结果不一致。本局已暂停，需要重新开局或检查版本是否一致。", "danger");
+            this.updateUi();
+            return;
+          }
+          if (status === "finished") {
+            const winner = Number(room.winner || 0);
+            if (winner && this.phase !== "gameover") {
+              this.phase = "gameover";
+              this.currentPlayer = 0;
+              this.winner = winner;
+              this.log(`${playerName(winner)}赢得房间 ${this.online.roomCode}。`);
+              this.showGameOver(`${playerName(winner)}获胜！`, "房间联机对战结束。可以再来一局，或退出游戏。");
+              this.updateUi();
+            }
+            this.setOnlineStatus(`${playerName(winner || 1)}获胜，房间已结束。`, "good");
+            return;
+          }
+          if (status === "settling" && room.currentRound?.placements && this.online.settlementStartedRound !== Number(room.round)) {
+            const placements = room.currentRound.placements;
+            if ((placements[1] || placements.p1) && (placements[2] || placements.p2)) {
+              this.loadOnlinePlacements(room);
+              this.online.settlementStartedRound = Number(room.round);
+              this.startSettlement();
+            }
+          }
+          if (status === "placing" && this.phase === "onlineWaitResult" && Number(room.round) >= this.round) {
+            this.phase = "onlinePlace";
+            this.currentPlayer = this.online.seat;
+            this.online.placementSubmitted = false;
+            this.online.resultSubmitted = false;
+            this.online.settlementStartedRound = null;
+            this.clearSelection();
+            this.setTab("tower");
+            this.log(`第 ${this.round} 回合联机对账完成，开始下一轮布置。`);
+            this.updateUi();
+          }
+        }
+
+        makePlacementSnapshot() {
+          const owner = this.online.seat || this.currentPlayer;
+          return {
+            version: "pvp_d1_phase2_v1",
+            round: this.round,
+            owner,
+            gold: Math.floor(this.players[owner].gold),
+            towerActions: this.towerActionsThisRound[owner] || 0,
+            monsterPlacements: this.monsterPlacementsThisRound[owner] || 0,
+            towers: this.towers.filter(tower => tower.owner === owner).map(tower => ({
+              type: tower.type, col: tower.col, row: tower.row, level: tower.level, evolutionKey: tower.evolutionKey || null,
+              cost: tower.cost || 0, upgradeSpent: tower.upgradeSpent || 0, evolutionSpent: tower.evolutionSpent || 0
+            })),
+            plannedMonsters: this.plannedMonsters.filter(monster => monster.owner === owner && monster.round === this.round).map(monster => ({
+              type: monster.type, col: monster.col, row: monster.row, cost: monster.cost || 0, round: this.round
+            })),
+            treasure: this.exportTreasureState(owner)
+          };
+        }
+
+        normalizeOnlinePlacement(snapshot, owner) {
+          const safe = snapshot || {};
+          const towers = Array.isArray(safe.towers) ? safe.towers : [];
+          const monsters = Array.isArray(safe.plannedMonsters) ? safe.plannedMonsters : [];
+          return {
+            gold: Number.isFinite(Number(safe.gold)) ? Number(safe.gold) : CONFIG.economy.startGold,
+            towerActions: Number(safe.towerActions || 0),
+            monsterPlacements: Number(safe.monsterPlacements || 0),
+            towers: towers.filter(item => TOWER_TYPES[item.type]).map((item, index) => {
+              const center = this.cellCenter(item.col, item.row);
+              return { id: owner * 100000 + index + 1, owner, type: item.type, col: item.col, row: item.row, x: center.x, y: center.y, level: Number(item.level || 1), evolutionKey: item.evolutionKey || null, cost: Number(item.cost || TOWER_TYPES[item.type].price), upgradeSpent: Number(item.upgradeSpent || 0), evolutionSpent: Number(item.evolutionSpent || 0) };
+            }),
+            plannedMonsters: monsters.filter(item => MONSTER_TYPES[item.type]).map((item, index) => {
+              const center = this.cellCenter(item.col, item.row);
+              return { id: owner * 200000 + index + 1, owner, type: item.type, col: item.col, row: item.row, x: center.x, y: center.y, cost: Number(item.cost || MONSTER_TYPES[item.type].price), round: this.round };
+            }),
+            treasure: this.normalizeTreasureState(safe.treasure, owner)
+          };
+        }
+
+        loadOnlinePlacements(room) {
+          const placements = room.currentRound?.placements || {};
+          const p1Raw = placements[1] || placements.p1;
+          const p2Raw = placements[2] || placements.p2;
+          const p1 = this.normalizeOnlinePlacement(p1Raw?.snapshot || p1Raw, 1);
+          const p2 = this.normalizeOnlinePlacement(p2Raw?.snapshot || p2Raw, 2);
+          this.round = Number(room.round || this.round);
+          this.players[1].gold = p1.gold;
+          this.players[2].gold = p2.gold;
+          this.towerActionsThisRound = { 1: p1.towerActions, 2: p2.towerActions };
+          this.monsterPlacementsThisRound = { 1: p1.monsterPlacements, 2: p2.monsterPlacements };
+          this.treasures = { 1: p1.treasure || this.getTreasureState(1), 2: p2.treasure || this.getTreasureState(2) };
+          this.towers = [...p1.towers, ...p2.towers];
+          this.plannedMonsters = [...p1.plannedMonsters, ...p2.plannedMonsters];
+          this.clearSelection();
+          this.setTab("log");
+          this.log(`房间 ${this.online.roomCode} 第 ${this.round} 回合双方布置已同步，开始本地确定性结算。`);
+        }
+
+        async submitOnlinePlacement() {
+          if (!this.online.enabled || !this.isPlacementPhase()) return;
+          if (this.online.placementSubmitted) { this.setOnlineStatus("本回合已经提交，正在等待对方。", "warn"); return; }
+          const snapshot = this.makePlacementSnapshot();
+          const snapshotText = this.stableStringify(snapshot);
+          const placementHash = this.hashString(snapshotText);
+          try {
+            this.phase = "onlineWaitOpponent";
+            this.currentPlayer = 0;
+            this.online.placementSubmitted = true;
+            this.updateUi();
+            await this.onlineApi("/api/pvp/submit-placement", { roomCode: this.online.roomCode, playerToken: this.online.playerToken, round: this.round, snapshot, placementHash });
+            this.log(`${playerName(this.online.seat)}已提交第 ${this.round} 回合布置，等待对方提交。`);
+            this.setOnlineStatus("已提交布置，等待对方。", "warn");
+            this.pollOnlineRoom();
+          } catch (error) {
+            this.phase = "onlinePlace";
+            this.currentPlayer = this.online.seat;
+            this.online.placementSubmitted = false;
+            this.setOnlineStatus(error.message || "提交布置失败。", "danger");
+            this.updateUi();
+          }
+        }
+
+        makeResultSnapshot(winner = null) {
+          return {
+            version: "pvp_d1_phase2_v1",
+            roomCode: this.online.roomCode,
+            round: this.online.settlementStartedRound || this.round,
+            nextRound: winner ? this.round : this.round,
+            winner: winner || null,
+            players: { 1: { gold: Math.floor(this.players[1].gold) }, 2: { gold: Math.floor(this.players[2].gold) } },
+            treasures: { 1: this.exportTreasureState(1), 2: this.exportTreasureState(2) },
+            towers: this.towers.map(tower => ({ owner: tower.owner, type: tower.type, col: tower.col, row: tower.row, level: tower.level, evolutionKey: tower.evolutionKey || null, cost: tower.cost || 0, upgradeSpent: tower.upgradeSpent || 0, evolutionSpent: tower.evolutionSpent || 0 }))
+          };
+        }
+
+        async submitOnlineResult(winner = null) {
+          if (!this.online.enabled || this.online.resultSubmitted) return;
+          const result = this.makeResultSnapshot(winner);
+          const resultHash = this.hashString(this.stableStringify(result));
+          this.online.resultSubmitted = true;
+          try {
+            await this.onlineApi("/api/pvp/submit-result", { roomCode: this.online.roomCode, playerToken: this.online.playerToken, round: this.online.settlementStartedRound || result.round, result, resultHash });
+            this.setOnlineStatus("结算结果已提交，等待双方对账。", "warn");
+            this.pollOnlineRoom();
+          } catch (error) {
+            this.online.resultSubmitted = false;
+            this.setOnlineStatus(error.message || "提交结算结果失败。", "danger");
+          }
+        }
+
+        stableStringify(value) {
+          if (value === null || typeof value !== "object") return JSON.stringify(value);
+          if (Array.isArray(value)) return `[${value.map(item => this.stableStringify(item)).join(",")}]`;
+          return `{${Object.keys(value).sort().map(key => `${JSON.stringify(key)}:${this.stableStringify(value[key])}`).join(",")}}`;
+        }
+
+        hashString(value) {
+          const text = String(value || "");
+          let h = 2166136261;
+          for (let i = 0; i < text.length; i += 1) {
+            h ^= text.charCodeAt(i);
+            h = Math.imul(h, 16777619);
+          }
+          return (h >>> 0).toString(16).padStart(8, "0");
+        }
+
+        open() {
+          document.getElementById("mainMenuModal")?.classList.add("hidden");
+          this.modal.classList.remove("hidden");
+          this.modal.setAttribute("aria-hidden", "false");
+          if (!this.online?.enabled && this.phase !== "p1place" && this.phase !== "p2place") this.resetToLobbyInitial();
+          else if (!this.online?.enabled) this.showSetupOverlay(true);
+          this.resizeCanvas();
+          this.startAnimation();
+          this.updateLobbyUi(this.latestRoom);
+          this.updateUi();
+        }
+
+        close() {
+          this.stopOnlinePolling();
+          this.modal.classList.add("hidden");
+          this.modal.setAttribute("aria-hidden", "true");
+          document.getElementById("mainMenuModal")?.classList.remove("hidden");
+        }
+
+        reset() {
+          this.round = 1;
+          this.phase = "p1place";
+          this.currentPlayer = 1;
+          this.players = { 1: { gold: CONFIG.economy.startGold }, 2: { gold: CONFIG.economy.startGold } };
+          this.resetPvpTreasures();
+          this.towers = [];
+          this.plannedMonsters = [];
+          this.activeMonsters = [];
+          this.undoStacks = { 1: [], 2: [] };
+          this.towerActionsThisRound = { 1: 0, 2: 0 };
+          this.monsterPlacementsThisRound = { 1: 0, 2: 0 };
+          this.effects = [];
+          this.logs = [];
+          this.simTime = 0;
+          this.accumulator = 0;
+          this.winner = null;
+          this.selected = { kind: "none", type: null };
+          this.selectedCell = null;
+          this.selectedTowerId = null;
+          this.setTab("tower");
+          this.log("本地双人对战开始：操作改为先点击格子，再点击分页中的塔或怪物类型。 ");
+          this.log(`每回合建塔/升级/进化总共最多 ${CONFIG.limits.towerActionsPerRound} 次；怪物放置数当前不限制。`);
+          this.log("点击可放塔格会自动切到防御塔分页；点击己方路线格会自动切到怪物分页；点击己方塔会切换为升级/进化。 ");
+          this.updateUi();
+          this.draw();
+        }
+
+        startAnimation() {
+          if (this.animationStarted) return;
+          this.animationStarted = true;
+          let last = performance.now();
+          const tick = (now) => {
+            const elapsed = Math.min(0.25, (now - last) / 1000);
+            last = now;
+            this.frame(elapsed);
+            requestAnimationFrame(tick);
+          };
+          requestAnimationFrame(tick);
+        }
+
+        frame(elapsed) {
+          if (this.phase === "settle") {
+            this.accumulator += elapsed;
+            let loops = 0;
+            while (this.accumulator >= CONFIG.battle.fixedDt && loops < 8 && this.phase === "settle") {
+              this.stepSimulation(CONFIG.battle.fixedDt);
+              this.accumulator -= CONFIG.battle.fixedDt;
+              loops += 1;
+            }
+          }
+          this.effects = this.effects.filter(effect => {
+            effect.life -= elapsed;
+            return effect.life > 0;
+          });
+          this.draw();
+        }
+
+        resizeCanvas() {
+          const dpr = Math.max(1, Math.min(2.5, window.devicePixelRatio || 1));
+          this.canvas.width = Math.round(this.worldW * dpr);
+          this.canvas.height = Math.round(this.worldH * dpr);
+          this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+          this.draw();
+        }
+
+        getViewOwner() {
+          if (this.online?.enabled && this.online.seat) return this.online.seat;
+          if (this.phase === "p2place") return 2;
+          return 1;
+        }
+
+        logicalToViewPoint(x, y) { return this.getViewOwner() === 1 ? { x, y } : { x, y: this.worldH - y }; }
+        viewToLogicalPoint(x, y) { return this.getViewOwner() === 1 ? { x, y } : { x, y: this.worldH - y }; }
+        viewRow(row) { return this.getViewOwner() === 1 ? row : CONFIG.rows - 1 - row; }
+        viewCellRect(col, row) { return { x: col * CONFIG.cell, y: this.viewRow(row) * CONFIG.cell, w: CONFIG.cell, h: CONFIG.cell }; }
+        cellCenter(col, row) { return { x: (col + 0.5) * CONFIG.cell, y: (row + 0.5) * CONFIG.cell }; }
+        cellCenterView(col, row) {
+          const p = this.cellCenter(col, row);
+          return this.logicalToViewPoint(p.x, p.y);
+        }
+        createTreasureState(owner) {
+          const home = this.treasurePoint(owner);
+          return { owner, x: home.x, y: home.y, state: "home", protectionTimer: 0 };
+        }
+        resetPvpTreasures() {
+          this.treasures = { 1: this.createTreasureState(1), 2: this.createTreasureState(2) };
+        }
+        getTreasureState(owner) {
+          if (!this.treasures) this.resetPvpTreasures();
+          if (!this.treasures[owner]) this.treasures[owner] = this.createTreasureState(owner);
+          return this.treasures[owner];
+        }
+        normalizeTreasureState(value, owner) {
+          const home = this.treasurePoint(owner);
+          const raw = value || {};
+          const allowed = ["home", "dropped", "carried"];
+          const state = allowed.includes(raw.state) ? raw.state : "home";
+          const x = Number.isFinite(Number(raw.x)) ? clamp(Number(raw.x), 8, this.worldW - 8) : home.x;
+          const y = Number.isFinite(Number(raw.y)) ? clamp(Number(raw.y), 8, this.worldH - 8) : home.y;
+          const protectionTimer = Math.max(0, Number(raw.protectionTimer || 0));
+          if (state === "home") return { owner, x: home.x, y: home.y, state: "home", protectionTimer: 0 };
+          return { owner, x, y, state, protectionTimer };
+        }
+        exportTreasureState(owner) {
+          const t = this.getTreasureState(owner);
+          return {
+            state: t.state || "home",
+            x: Math.round((t.x || 0) * 1000) / 1000,
+            y: Math.round((t.y || 0) * 1000) / 1000,
+            protectionTimer: Math.round(Math.max(0, t.protectionTimer || 0) * 1000) / 1000
+          };
+        }
+        resetTreasureHome(owner) {
+          const t = this.getTreasureState(owner);
+          const home = this.treasurePoint(owner);
+          t.x = home.x; t.y = home.y; t.state = "home"; t.protectionTimer = 0;
+        }
+        dropTreasure(owner, x, y) {
+          const t = this.getTreasureState(owner);
+          t.x = clamp(x, CONFIG.cell * 0.25, this.worldW - CONFIG.cell * 0.25);
+          t.y = clamp(y, CONFIG.cell * 0.25, this.worldH - CONFIG.cell * 0.25);
+          t.state = "dropped";
+          t.protectionTimer = CONFIG.battle.treasureDropProtectionDuration || 0;
+          this.effects.push({ type: "text", x: t.x, y: t.y - 24, text: "宝物掉落", color: "#ffd166", life: 1.0 });
+        }
+        restoreTreasureState(owner, state) {
+          this.treasures[owner] = this.normalizeTreasureState(state, owner);
+        }
+        updateTreasureProtection(dt) {
+          for (const owner of [1, 2]) {
+            const t = this.getTreasureState(owner);
+            if (t.state === "dropped" && t.protectionTimer > 0) t.protectionTimer = Math.max(0, t.protectionTimer - dt);
+          }
+        }
+        getTreasurePosition(owner) {
+          const t = this.getTreasureState(owner);
+          if (t.state === "dropped") return { x: t.x, y: t.y, state: "dropped", protectionTimer: t.protectionTimer || 0 };
+          const home = this.treasurePoint(owner);
+          return { x: home.x, y: home.y, state: "home", protectionTimer: 0 };
+        }
+        getDroppedTreasure(owner) {
+          const t = this.getTreasureState(owner);
+          return t.state === "dropped" ? t : null;
+        }
+        pointToCell(x, y) {
+          return { col: clamp(Math.floor(x / CONFIG.cell), 0, CONFIG.cols - 1), row: clamp(Math.floor(y / CONFIG.cell), 0, CONFIG.rows - 1) };
+        }
+
+        isLaneCol(col) { return CONFIG.lanes.includes(col); }
+        isIceCell(col, row) { return row >= CONFIG.iceRowMin && row <= CONFIG.iceRowMax && !this.isLaneCol(col); }
+        isInRowRange(row, range) { return row >= range[0] && row <= range[1]; }
+        isTreasureCell(col, row) { return Object.values(CONFIG.treasureCells).some(cell => cell.col === col && cell.row === row); }
+        isTowerAllowedCell(owner, col, row) { return this.isInRowRange(row, CONFIG.towerRows[owner]) && !this.isLaneCol(col) && !this.isIceCell(col, row) && !this.isTreasureCell(col, row); }
+        isMonsterAllowedCell(owner, col, row) { return this.isInRowRange(row, CONFIG.spawnRows[owner]) && this.isLaneCol(col) && !this.isIceCell(col, row) && !this.isTreasureCell(col, row); }
+        getTowerAtCell(col, row) { return this.towers.find(tower => tower.col === col && tower.row === row) || null; }
+        getTowerById(id) { return this.towers.find(tower => tower.id === id) || null; }
+        getSelectedTower() { return this.selectedTowerId ? this.getTowerById(this.selectedTowerId) : null; }
+        getPlannedMonsterAtCell(col, row, owner = null) { return this.plannedMonsters.find(monster => monster.col === col && monster.row === row && (owner === null || monster.owner === owner)) || null; }
+        isCellOccupiedForPlacement(col, row, owner) { return Boolean(this.getTowerAtCell(col, row) || this.getPlannedMonsterAtCell(col, row, owner)); }
+
+        towerOpsRemaining(player = this.currentPlayer) { return Math.max(0, CONFIG.limits.towerActionsPerRound - (this.towerActionsThisRound[player] || 0)); }
+        hasTowerActionCapacity(player = this.currentPlayer) { return this.towerOpsRemaining(player) > 0; }
+        monsterPlacementsRemaining(player = this.currentPlayer) {
+          const limit = CONFIG.limits.monsterPlacementsPerRound;
+          if (!isFiniteLimit(limit)) return Infinity;
+          return Math.max(0, limit - (this.monsterPlacementsThisRound[player] || 0));
+        }
+        hasMonsterPlacementCapacity(player = this.currentPlayer) { return this.monsterPlacementsRemaining(player) > 0; }
+        consumeTowerAction(player) { this.towerActionsThisRound[player] = (this.towerActionsThisRound[player] || 0) + 1; }
+        refundTowerAction(player) { this.towerActionsThisRound[player] = Math.max(0, (this.towerActionsThisRound[player] || 0) - 1); }
+        consumeMonsterPlacement(player) { this.monsterPlacementsThisRound[player] = (this.monsterPlacementsThisRound[player] || 0) + 1; }
+        refundMonsterPlacement(player) { this.monsterPlacementsThisRound[player] = Math.max(0, (this.monsterPlacementsThisRound[player] || 0) - 1); }
+
+        getTowerEvolutionCfg(tower) { return tower?.evolutionKey ? TOWER_TYPES[tower.type]?.evolutions?.[tower.evolutionKey] || null : null; }
+        getTowerName(tower) { return this.getTowerEvolutionCfg(tower)?.name || TOWER_TYPES[tower.type]?.name || "防御塔"; }
+        getTowerSprite(tower) { return this.getTowerEvolutionCfg(tower)?.sprite || TOWER_TYPES[tower.type]?.sprite || tower.type; }
+        getTowerShort(tower) { return this.getTowerEvolutionCfg(tower)?.short || TOWER_TYPES[tower.type]?.short || "塔"; }
+        getTowerColor(tower) { return TOWER_TYPES[tower.type]?.color || "#65d1ff"; }
+        getTowerUpgradeCfg(tower) { return TOWER_TYPES[tower.type]?.upgrade || { maxLevel: 1 }; }
+        getTowerMaxLevel(tower) { return this.getTowerUpgradeCfg(tower).maxLevel || 1; }
+        getTowerDps(tower) {
+          const base = TOWER_TYPES[tower.type];
+          const up = this.getTowerUpgradeCfg(tower);
+          const evo = this.getTowerEvolutionCfg(tower);
+          let dps = base.dps * Math.pow(up.dpsMultiplierPerLevel || 1, Math.max(0, tower.level - 1));
+          if (evo?.dpsMultiplier) dps *= evo.dpsMultiplier;
+          return dps;
+        }
+        getTowerRange(tower) {
+          const base = TOWER_TYPES[tower.type];
+          const up = this.getTowerUpgradeCfg(tower);
+          const evo = this.getTowerEvolutionCfg(tower);
+          let range = base.range + (up.rangeBonusPerLevel || 0) * Math.max(0, tower.level - 1);
+          if (evo?.rangeMultiplier) range *= evo.rangeMultiplier;
+          return range;
+        }
+        getTowerAoeRadius(tower) {
+          const base = TOWER_TYPES[tower.type];
+          const up = this.getTowerUpgradeCfg(tower);
+          const evo = this.getTowerEvolutionCfg(tower);
+          return (base.aoeRadius || 0) + (up.aoeRadiusBonusPerLevel || 0) * Math.max(0, tower.level - 1) + (evo?.aoeRadiusBonus || 0);
+        }
+        getTowerSlow(tower) {
+          const base = TOWER_TYPES[tower.type];
+          const up = this.getTowerUpgradeCfg(tower);
+          const evo = this.getTowerEvolutionCfg(tower);
+          if (typeof evo?.slowOverride === "number") return evo.slowOverride;
+          if (typeof base.slow !== "number") return 1;
+          return clamp(base.slow - (up.slowBonusPerLevel || 0) * Math.max(0, tower.level - 1), up.minSlow || 0.35, 1);
+        }
+        getUpgradeCost(tower) {
+          if (!tower || tower.level >= this.getTowerMaxLevel(tower)) return 0;
+          const up = this.getTowerUpgradeCfg(tower);
+          return Math.max(1, Math.round((up.baseCost || 10) * Math.pow(up.costGrowth || 1.45, Math.max(0, tower.level - 1))));
+        }
+        getEvolutionOptions(tower) { return Object.entries(TOWER_TYPES[tower.type]?.evolutions || {}).map(([key, cfg]) => ({ key, ...cfg })); }
+        getEvolutionCost(tower, branchKey) { return Math.max(1, Math.round(TOWER_TYPES[tower.type]?.evolutions?.[branchKey]?.cost || 0)); }
+        getTowerSellRefund(tower) { return Math.max(1, Math.floor((tower.cost + tower.upgradeSpent + tower.evolutionSpent) * CONFIG.economy.sellRefundRate)); }
+
+        handleCanvasClick(event) {
+          if (!this.isPlacementPhase()) return;
+          const rect = this.canvas.getBoundingClientRect();
+          const viewX = (event.clientX - rect.left) * (this.worldW / rect.width);
+          const viewY = (event.clientY - rect.top) * (this.worldH / rect.height);
+          const logical = this.viewToLogicalPoint(viewX, viewY);
+          const cell = this.pointToCell(logical.x, logical.y);
+
+          if (this.selected.kind === "remove") {
+            this.tryRemoveAt(cell.col, cell.row);
+            return;
+          }
+
+          const tower = this.getTowerAtCell(cell.col, cell.row);
+          if (tower) {
+            if (tower.owner === this.currentPlayer) this.selectTower(tower);
+            return;
+          }
+
+          if (this.isTowerAllowedCell(this.currentPlayer, cell.col, cell.row) && !this.isCellOccupiedForPlacement(cell.col, cell.row, this.currentPlayer)) {
+            this.selected = { kind: "cell", type: "tower" };
+            this.selectedCell = { kind: "towerCell", col: cell.col, row: cell.row };
+            this.selectedTowerId = null;
+            this.setTab("tower");
+            this.updateUi();
+            return;
+          }
+
+          if (this.isMonsterAllowedCell(this.currentPlayer, cell.col, cell.row) && !this.isCellOccupiedForPlacement(cell.col, cell.row, this.currentPlayer)) {
+            this.selected = { kind: "cell", type: "monster" };
+            this.selectedCell = { kind: "monsterCell", col: cell.col, row: cell.row };
+            this.selectedTowerId = null;
+            this.setTab("monster");
+            this.updateUi();
+          }
+        }
+
+        selectTower(tower) {
+          this.selected = { kind: "towerObject", type: tower.type };
+          this.selectedCell = { kind: "towerObject", col: tower.col, row: tower.row };
+          this.selectedTowerId = tower.id;
+          this.setTab("tower");
+          this.updateUi();
+        }
+
+        clearSelection() {
+          this.selected = { kind: "none", type: null };
+          this.selectedCell = null;
+          this.selectedTowerId = null;
+          this.updateUi();
+        }
+
+        handleTowerShopClick(type) {
+          if (!this.isPlacementPhase()) return;
+          if (!this.selectedCell || this.selectedCell.kind !== "towerCell") {
+            this.log("请先点击一个可放置防御塔的己方格子。 ");
+            return;
+          }
+          this.tryPlaceTower(this.selectedCell.col, this.selectedCell.row, type);
+        }
+
+        handleMonsterShopClick(type) {
+          if (!this.isPlacementPhase()) return;
+          if (!this.selectedCell || this.selectedCell.kind !== "monsterCell") {
+            this.log("请先点击己方三路上的怪物放置格。 ");
+            return;
+          }
+          this.tryPlaceMonster(this.selectedCell.col, this.selectedCell.row, type);
+        }
+
+        selectRemoveMode() {
+          if (!this.isPlacementPhase()) return;
+          this.selected = { kind: "remove", type: "remove" };
+          this.selectedCell = null;
+          this.selectedTowerId = null;
+          this.setTab("action");
+          this.log(`${playerName(this.currentPlayer)}进入拆除/取消模式：点击己方塔可出售，点击本回合怪物可取消。`);
+          this.updateUi();
+        }
+
+        isPlacementPhase() { return this.phase === "p1place" || this.phase === "p2place" || this.phase === "onlinePlace"; }
+
+        canUsePvpMagnet(player = this.currentPlayer) {
+          if (!this.isPlacementPhase() || !player) return false;
+          const treasure = this.getTreasureState(player);
+          const cost = CONFIG.economy.magnetCost || 9;
+          return treasure.state === "dropped" && !this.isTreasureCarried(player) && this.players[player].gold >= cost;
+        }
+
+        usePvpMagnet() {
+          if (!this.isPlacementPhase()) return;
+          const player = this.currentPlayer || this.online?.seat || 0;
+          if (!player) return;
+          const treasure = this.getTreasureState(player);
+          const cost = CONFIG.economy.magnetCost || 9;
+          if (treasure.state !== "dropped") {
+            this.log(`${playerName(player)}的宝物没有掉落，暂时不需要使用吸铁石。`);
+            return;
+          }
+          if (this.isTreasureCarried(player)) {
+            this.log("吸铁石只能吸回掉落在地上的宝物，不能从怪物手里抢回宝物。 ");
+            return;
+          }
+          if (this.players[player].gold < cost) {
+            this.log(`${playerName(player)}金币不足，吸铁石需要 ${cost} 金。`);
+            return;
+          }
+          const previousTreasure = this.exportTreasureState(player);
+          this.players[player].gold -= cost;
+          this.resetTreasureHome(player);
+          this.undoStacks[player].push({ kind: "magnet", refund: cost, treasureOwner: player, previousTreasure });
+          this.log(`${playerName(player)}使用吸铁石，消耗 ${cost} 金，把掉落宝物传送回初始位置。`);
+          this.updateUi();
+        }
+
+        finishCurrentPlacement() {
+          if (this.online?.enabled) return this.submitOnlinePlacement();
+          if (this.phase === "p1place") {
+            this.showPass("请交给玩家2", "玩家1已经完成布置。点击继续后，棋盘会翻转，玩家2显示在下方；玩家1的塔和出兵位置不会直接暴露。", () => {
+              this.phase = "p2place";
+              this.currentPlayer = 2;
+              this.clearSelection();
+              this.setTab("tower");
+              this.log("轮到玩家2布置：玩家2在下方，玩家1在上方。 ");
+              this.updateUi();
+            });
+          } else if (this.phase === "p2place") {
+            this.showPass("双方布置完成", "点击开始结算。本地验证版结算时以玩家1在下方显示；防御塔图标保持隐藏，通过攻击表现推测类型。", () => this.startSettlement());
+          }
+        }
+
+        showPass(title, text, action) {
+          this.passTitle.textContent = title;
+          this.passText.textContent = text;
+          if (this.passBtn) this.passBtn.style.display = "";
+          this.gameOverActions?.classList.add("hidden");
+          this.pendingPassAction = action;
+          this.passOverlay.classList.add("show");
+        }
+
+        showGameOver(title, text) {
+          this.passTitle.textContent = title;
+          this.passText.textContent = text;
+          if (this.passBtn) this.passBtn.style.display = "none";
+          this.gameOverActions?.classList.remove("hidden");
+          this.pendingPassAction = null;
+          this.passOverlay.classList.add("show");
+        }
+
+        tryPlaceTower(col, row, type) {
+          const cfg = TOWER_TYPES[type];
+          const player = this.currentPlayer;
+          if (!cfg || !this.isTowerAllowedCell(player, col, row)) return;
+          if (!this.hasTowerActionCapacity(player)) {
+            this.log(`${playerName(player)}本回合塔操作已达上限：${CONFIG.limits.towerActionsPerRound} 次。`);
+            return;
+          }
+          if (this.getTowerAtCell(col, row) || this.getPlannedMonsterAtCell(col, row, player)) {
+            this.log("这个格子已经被占用。 ");
+            return;
+          }
+          if (this.players[player].gold < cfg.price) {
+            this.log(`${playerName(player)}金币不足，无法建造${cfg.name}。`);
+            return;
+          }
+          this.players[player].gold -= cfg.price;
+          this.consumeTowerAction(player);
+          const center = this.cellCenter(col, row);
+          const tower = { id: this.nextId++, owner: player, type, col, row, x: center.x, y: center.y, level: 1, evolutionKey: null, cost: cfg.price, upgradeSpent: 0, evolutionSpent: 0 };
+          this.towers.push(tower);
+          this.undoStacks[player].push({ kind: "towerBuild", id: tower.id, refund: cfg.price, towerId: tower.id, towerAction: true });
+          this.log(`${playerName(player)}建造了一个隐藏防御塔。本回合塔操作剩余 ${this.towerOpsRemaining(player)} 次。`);
+          this.selectTower(tower);
+        }
+
+        tryPlaceMonster(col, row, type) {
+          const cfg = MONSTER_TYPES[type];
+          const player = this.currentPlayer;
+          if (!cfg || !this.isMonsterAllowedCell(player, col, row)) return;
+          if (!this.hasMonsterPlacementCapacity(player)) {
+            this.log(`${playerName(player)}本回合怪物放置数已达上限。`);
+            return;
+          }
+          if (this.getTowerAtCell(col, row) || this.getPlannedMonsterAtCell(col, row, player)) {
+            this.log("这个格子已经有己方单位。 ");
+            return;
+          }
+          if (this.players[player].gold < cfg.price) {
+            this.log(`${playerName(player)}金币不足，无法放置${cfg.name}。`);
+            return;
+          }
+          this.players[player].gold -= cfg.price;
+          this.consumeMonsterPlacement(player);
+          const center = this.cellCenter(col, row);
+          const monster = { id: this.nextId++, owner: player, type, col, row, x: center.x, y: center.y, cost: cfg.price, round: this.round };
+          this.plannedMonsters.push(monster);
+          this.undoStacks[player].push({ kind: "monster", id: monster.id, refund: cfg.price });
+          const distanceHint = player === 1 ? (row - CONFIG.spawnRows[1][0]) : (CONFIG.spawnRows[2][1] - row);
+          this.log(`${playerName(player)}部署${cfg.name}：距离前线${distanceHint}格，越小越早接敌。`);
+          this.selectedCell = null;
+          this.selected = { kind: "none", type: null };
+          this.updateUi();
+        }
+
+        upgradeSelectedTower() {
+          const tower = this.getSelectedTower();
+          const player = this.currentPlayer;
+          if (!tower || tower.owner !== player || !this.isPlacementPhase()) return;
+          const maxLevel = this.getTowerMaxLevel(tower);
+          if (tower.level >= maxLevel) {
+            this.log("这座塔已满级，可以选择进化。 ");
+            return;
+          }
+          if (!this.hasTowerActionCapacity(player)) {
+            this.log(`${playerName(player)}本回合塔操作已达上限：${CONFIG.limits.towerActionsPerRound} 次。`);
+            return;
+          }
+          const cost = this.getUpgradeCost(tower);
+          if (this.players[player].gold < cost) {
+            this.log(`${playerName(player)}金币不足，升级需要 ${cost} 金。`);
+            return;
+          }
+          this.players[player].gold -= cost;
+          this.consumeTowerAction(player);
+          tower.level += 1;
+          tower.upgradeSpent += cost;
+          this.undoStacks[player].push({ kind: "towerUpgrade", towerId: tower.id, refund: cost, towerAction: true });
+          this.log(`${playerName(player)}升级${this.getTowerName(tower)}到 Lv.${tower.level}，本回合塔操作剩余 ${this.towerOpsRemaining(player)} 次。`);
+          this.updateUi();
+        }
+
+        evolveSelectedTower(index) {
+          const tower = this.getSelectedTower();
+          const player = this.currentPlayer;
+          if (!tower || tower.owner !== player || !this.isPlacementPhase()) return;
+          const options = this.getEvolutionOptions(tower);
+          const option = options[index];
+          if (!option) return;
+          if (tower.evolutionKey) {
+            this.log("这座塔已经进化。 ");
+            return;
+          }
+          if (tower.level < this.getTowerMaxLevel(tower)) {
+            this.log("防御塔需要先升到满级才能进化。 ");
+            return;
+          }
+          if (!this.hasTowerActionCapacity(player)) {
+            this.log(`${playerName(player)}本回合塔操作已达上限：${CONFIG.limits.towerActionsPerRound} 次。`);
+            return;
+          }
+          const cost = this.getEvolutionCost(tower, option.key);
+          if (this.players[player].gold < cost) {
+            this.log(`${playerName(player)}金币不足，进化需要 ${cost} 金。`);
+            return;
+          }
+          this.players[player].gold -= cost;
+          this.consumeTowerAction(player);
+          tower.evolutionKey = option.key;
+          tower.evolutionSpent += cost;
+          this.undoStacks[player].push({ kind: "towerEvolve", towerId: tower.id, branchKey: option.key, refund: cost, towerAction: true });
+          this.log(`${playerName(player)}将防御塔进化为${option.name}，本回合塔操作剩余 ${this.towerOpsRemaining(player)} 次。`);
+          this.updateUi();
+        }
+
+        sellSelectedTower() {
+          const tower = this.getSelectedTower();
+          const player = this.currentPlayer;
+          if (!tower || tower.owner !== player || !this.isPlacementPhase()) return;
+          const refund = this.getTowerSellRefund(tower);
+          this.players[player].gold += refund;
+          this.towers = this.towers.filter(item => item.id !== tower.id);
+          this.undoStacks[player] = this.undoStacks[player].filter(action => action.towerId !== tower.id && action.id !== tower.id);
+          this.log(`${playerName(player)}出售${this.getTowerName(tower)}，返还 ${refund} 金。出售不返还本回合塔操作次数。`);
+          this.clearSelection();
+        }
+
+        tryRemoveAt(col, row) {
+          const player = this.currentPlayer;
+          const planned = this.getPlannedMonsterAtCell(col, row, player);
+          if (planned && planned.round === this.round) {
+            this.plannedMonsters = this.plannedMonsters.filter(item => item.id !== planned.id);
+            this.players[player].gold += planned.cost;
+            this.refundMonsterPlacement(player);
+            this.log(`${playerName(player)}取消了一个本回合部署的怪物，返还${planned.cost}金。`);
+            this.updateUi();
+            return;
+          }
+          const tower = this.getTowerAtCell(col, row);
+          if (tower && tower.owner === player) {
+            this.selectTower(tower);
+            this.sellSelectedTower();
+            return;
+          }
+        }
+
+        undoLastAction() {
+          if (!this.isPlacementPhase()) return;
+          const player = this.currentPlayer;
+          const action = this.undoStacks[player].pop();
+          if (!action) {
+            this.log("没有可撤销的操作。 ");
+            return;
+          }
+          if (action.kind === "towerBuild") {
+            this.towers = this.towers.filter(item => item.id !== action.id);
+            this.players[player].gold += action.refund || 0;
+            this.refundTowerAction(player);
+            if (this.selectedTowerId === action.id) this.clearSelection();
+          } else if (action.kind === "towerUpgrade") {
+            const tower = this.getTowerById(action.towerId);
+            if (tower) {
+              tower.level = Math.max(1, tower.level - 1);
+              tower.upgradeSpent = Math.max(0, tower.upgradeSpent - (action.refund || 0));
+              this.players[player].gold += action.refund || 0;
+              this.refundTowerAction(player);
+            }
+          } else if (action.kind === "towerEvolve") {
+            const tower = this.getTowerById(action.towerId);
+            if (tower) {
+              tower.evolutionKey = null;
+              tower.evolutionSpent = Math.max(0, tower.evolutionSpent - (action.refund || 0));
+              this.players[player].gold += action.refund || 0;
+              this.refundTowerAction(player);
+            }
+          } else if (action.kind === "monster") {
+            this.plannedMonsters = this.plannedMonsters.filter(item => item.id !== action.id);
+            this.players[player].gold += action.refund || 0;
+            this.refundMonsterPlacement(player);
+          } else if (action.kind === "magnet") {
+            this.players[player].gold += action.refund || 0;
+            this.restoreTreasureState(action.treasureOwner || player, action.previousTreasure);
+          }
+          this.log(`${playerName(player)}撤销上一步，返还${action.refund || 0}金。`);
+          this.updateUi();
+        }
+
+        startSettlement() {
+          this.phase = "settle";
+          this.currentPlayer = 0;
+          this.simTime = 0;
+          this.accumulator = 0;
+          this.selected = { kind: "none", type: null };
+          this.selectedCell = null;
+          this.selectedTowerId = null;
+          this.activeMonsters = this.plannedMonsters.map(plan => this.createActiveMonster(plan));
+          this.plannedMonsters = [];
+          this.undoStacks = { 1: [], 2: [] };
+          this.setTab("log");
+          this.log(`第 ${this.round} 回合开始结算：${this.activeMonsters.length} 只怪物进入战场；结算将持续到清场或夺宝成功。`);
+          this.updateUi();
+        }
+
+        createActiveMonster(plan) {
+          const cfg = MONSTER_TYPES[plan.type];
+          const laneCenter = this.cellCenter(plan.col, plan.row);
+          const hp = Math.max(1, Math.round(cfg.hp * (CONFIG.battle.monsterHpMultiplier || 1)));
+          return { id: plan.id, owner: plan.owner, type: plan.type, cost: cfg.price, name: cfg.name, hp, maxHp: hp, speed: cfg.speed, x: plan.x, y: plan.y, laneCol: plan.col, laneX: laneCenter.x, stage: "route", carrying: false, alive: true, crossed: false, deep: false, touched: false, slow: 1 };
+        }
+
+        stepSimulation(dt) {
+          this.simTime += dt;
+          this.updateTreasureProtection(dt);
+          for (const monster of this.activeMonsters) monster.slow = 1;
+          this.updateTowers(dt);
+          this.updateMonsters(dt);
+          this.activeMonsters = this.activeMonsters.filter(monster => monster.alive);
+          if (this.winner) { this.endGame(this.winner); return; }
+          if (this.activeMonsters.length === 0) { this.finishSettlementNoWinner(); return; }
+          if (this.simTime >= CONFIG.battle.maxSettleTime) {
+            this.log("结算异常过长，已按兜底规则结束本回合。");
+            this.finishSettlementNoWinner();
+            return;
+          }
+          this.updateUi();
+        }
+
+        updateTowers(dt) {
+          for (const tower of this.towers) {
+            const base = TOWER_TYPES[tower.type];
+            const evo = this.getTowerEvolutionCfg(tower);
+            const range = this.getTowerRange(tower);
+            const enemies = this.activeMonsters.filter(monster => monster.alive && monster.owner !== tower.owner && this.canTowerTargetMonster(tower, monster));
+            let target = null;
+            let best = Infinity;
+            for (const monster of enemies) {
+              const d = dist(tower.x, tower.y, monster.x, monster.y);
+              if (d <= range && d < best) { best = d; target = monster; }
+            }
+            if (!target) continue;
+            const beamColor = tower.owner === 1 ? "#65d1ff" : "#ff6a84";
+            const dps = this.getTowerDps(tower) * (target.carrying && evo?.carrierBonus ? evo.carrierBonus : 1);
+            const aoeRadius = this.getTowerAoeRadius(tower);
+            const aura = Boolean(evo?.aura);
+            const slowValue = this.getTowerSlow(tower);
+            if (base.aoeRadius || aoeRadius > 0 || aura) {
+              const centerX = aura ? tower.x : target.x;
+              const centerY = aura ? tower.y : target.y;
+              const radius = aura ? range : aoeRadius;
+              const hideAoeArea = !aura && (base.aoeRadius || aoeRadius > 0);
+              if (!hideAoeArea) this.effects.push({ type: "aoe", x: centerX, y: centerY, r: radius, color: aura ? "#85f0c6" : "#ffd166", life: 0.18 });
+              this.effects.push({ type: "beam", x1: tower.x, y1: tower.y, x2: target.x, y2: target.y, color: beamColor, width: 4, life: 0.10 });
+              for (const monster of enemies) {
+                if (dist(monster.x, monster.y, centerX, centerY) <= radius + 10) {
+                  this.damageMonster(monster, dps * dt, tower.owner);
+                  if (slowValue < 1) monster.slow = Math.min(monster.slow, slowValue);
+                }
+              }
+            } else {
+              this.effects.push({ type: "beam", x1: tower.x, y1: tower.y, x2: target.x, y2: target.y, color: beamColor, width: tower.type === "sniper" ? 3 : 5, life: 0.10 });
+              this.damageMonster(target, dps * dt, tower.owner);
+              if (slowValue < 1) {
+                target.slow = Math.min(target.slow, slowValue);
+                this.effects.push({ type: "slow", x: target.x, y: target.y, r: 19, color: "#85f0c6", life: 0.14 });
+              }
+            }
+          }
+        }
+
+        canTowerTargetMonster(tower, monster) { return !(monster.type === "camo" && tower.type === "normal"); }
+
+        damageMonster(monster, amount, defender) {
+          if (!monster.alive) return;
+          monster.hp -= amount;
+          if (monster.hp > 0) return;
+          monster.alive = false;
+          const reward = Math.max(1, Math.round(monster.cost * CONFIG.economy.killRewardRate));
+          this.players[defender].gold += reward;
+          this.effects.push({ type: "text", x: monster.x, y: monster.y - 18, text: `+${reward}`, color: defender === 1 ? "#65d1ff" : "#ff6a84", life: 0.75 });
+          if (monster.carrying) {
+            const treasureOwner = enemyOf(monster.owner);
+            this.dropTreasure(treasureOwner, monster.x, monster.y);
+            monster.carrying = false;
+            this.log(`${playerName(defender)}击杀了搬运宝物的${monster.name}，宝物掉落在原地并获得短暂保护。`);
+          }
+        }
+
+        updateMonsters(dt) {
+          const midY = this.worldH / 2;
+          for (const monster of this.activeMonsters) {
+            if (!monster.alive) continue;
+            this.applyOffenseRewards(monster, midY);
+            const target = this.getMonsterTarget(monster);
+            const speed = monster.speed * monster.slow * (monster.carrying ? CONFIG.battle.carrySpeedMultiplier : 1);
+            const d = dist(monster.x, monster.y, target.x, target.y);
+            const step = speed * dt;
+            if (d <= Math.max(step, 0.001)) {
+              monster.x = target.x;
+              monster.y = target.y;
+              this.onMonsterReachTarget(monster, target);
+            } else {
+              monster.x += (target.x - monster.x) / d * step;
+              monster.y += (target.y - monster.y) / d * step;
+            }
+            this.checkTreasurePickup(monster);
+            this.checkTreasureReturn(monster);
+          }
+        }
+
+        applyOffenseRewards(monster, midY) {
+          if (monster.owner === 1) {
+            if (!monster.crossed && monster.y <= midY) {
+              monster.crossed = true;
+              this.players[1].gold += CONFIG.economy.crossLineReward;
+              this.effects.push({ type: "text", x: monster.x, y: monster.y - 15, text: `+${CONFIG.economy.crossLineReward}越线`, color: "#65d1ff", life: 0.75 });
+            }
+            if (!monster.deep && monster.y <= CONFIG.cell * 3) {
+              monster.deep = true;
+              this.players[1].gold += CONFIG.economy.deepInvadeReward;
+              this.effects.push({ type: "text", x: monster.x, y: monster.y - 15, text: `+${CONFIG.economy.deepInvadeReward}深入`, color: "#65d1ff", life: 0.75 });
+            }
+          } else {
+            if (!monster.crossed && monster.y >= midY) {
+              monster.crossed = true;
+              this.players[2].gold += CONFIG.economy.crossLineReward;
+              this.effects.push({ type: "text", x: monster.x, y: monster.y - 15, text: `+${CONFIG.economy.crossLineReward}越线`, color: "#ff6a84", life: 0.75 });
+            }
+            if (!monster.deep && monster.y >= this.worldH - CONFIG.cell * 3) {
+              monster.deep = true;
+              this.players[2].gold += CONFIG.economy.deepInvadeReward;
+              this.effects.push({ type: "text", x: monster.x, y: monster.y - 15, text: `+${CONFIG.economy.deepInvadeReward}深入`, color: "#ff6a84", life: 0.75 });
+            }
+          }
+        }
+
+        getMonsterTarget(monster) {
+          if (monster.carrying) {
+            const homeTreasure = this.treasurePoint(monster.owner);
+            return { x: homeTreasure.x, y: homeTreasure.y, kind: "returnTreasure" };
+          }
+          const midY = this.worldH / 2;
+          const treasureOwner = enemyOf(monster.owner);
+          const carriedTreasure = this.getTreasureCarrier(treasureOwner);
+          // 一旦己方有怪物搬起对方宝物，其他己方怪物优先靠近“正在移动的宝物”。
+          // 这条逻辑必须早于路线限制，否则跟随怪物会在中线附近被路线逻辑卡住。
+          if (carriedTreasure) {
+            monster.stage = "free";
+            return { x: carriedTreasure.x, y: carriedTreasure.y, kind: "carriedTreasure" };
+          }
+          const droppedTreasure = this.getDroppedTreasure(treasureOwner);
+          if (droppedTreasure) {
+            monster.stage = "free";
+            return { x: droppedTreasure.x, y: droppedTreasure.y, kind: "droppedTreasure" };
+          }
+          if (monster.owner === 1 && monster.y > midY) return { x: monster.laneX, y: midY, kind: "route" };
+          if (monster.owner === 2 && monster.y < midY) return { x: monster.laneX, y: midY, kind: "route" };
+          monster.stage = "free";
+          const enemyTreasure = this.getTreasurePosition(treasureOwner);
+          return { x: enemyTreasure.x, y: enemyTreasure.y, kind: enemyTreasure.state === "dropped" ? "droppedTreasure" : "treasure" };
+        }
+        onMonsterReachTarget(monster, target) { if (target.kind === "route") monster.stage = "free"; }
+        treasurePoint(owner) { const cell = CONFIG.treasureCells[owner]; return this.cellCenter(cell.col, cell.row); }
+        getTreasureCarrier(owner) { return this.activeMonsters.find(monster => monster.alive && monster.carrying && enemyOf(monster.owner) === owner) || null; }
+        checkTreasurePickup(monster) {
+          if (!monster.alive || monster.carrying) return;
+          const treasureOwner = enemyOf(monster.owner);
+          if (this.isTreasureCarried(treasureOwner)) return;
+          const treasure = this.getTreasureState(treasureOwner);
+          const enemyTreasure = this.getTreasurePosition(treasureOwner);
+          if (treasure.state === "dropped" && treasure.protectionTimer > 0) return;
+          if (dist(monster.x, monster.y, enemyTreasure.x, enemyTreasure.y) <= CONFIG.battle.pickupRadius) {
+            monster.carrying = true;
+            monster.stage = "return";
+            treasure.state = "carried";
+            treasure.x = monster.x;
+            treasure.y = monster.y;
+            treasure.protectionTimer = 0;
+            if (!monster.touched) {
+              monster.touched = true;
+              this.players[monster.owner].gold += CONFIG.economy.treasurePickupReward;
+              this.log(`${playerName(monster.owner)}的${monster.name}搬起了对方宝物，进攻奖励 +${CONFIG.economy.treasurePickupReward} 金。`);
+            }
+          }
+        }
+        checkTreasureReturn(monster) {
+          if (!monster.alive || !monster.carrying) return;
+          const home = this.treasurePoint(monster.owner);
+          if (dist(monster.x, monster.y, home.x, home.y) <= CONFIG.battle.finishRadius + 8) this.winner = monster.owner;
+        }
+
+        finishSettlementNoWinner() {
+          const income = CONFIG.economy.baseIncome + this.round * CONFIG.economy.incomeGrowthPerRound;
+          this.players[1].gold += income;
+          this.players[2].gold += income;
+          this.log(`第 ${this.round} 回合结束：无人夺宝成功，双方基础收入 +${income} 金。`);
+          this.round += 1;
+          this.activeMonsters = [];
+          this.towerActionsThisRound = { 1: 0, 2: 0 };
+          this.monsterPlacementsThisRound = { 1: 0, 2: 0 };
+          if (this.online?.enabled) {
+            this.phase = "onlineWaitResult";
+            this.currentPlayer = 0;
+            this.clearSelection();
+            this.setTab("log");
+            this.updateUi();
+            this.submitOnlineResult(null);
+            return;
+          }
+          this.phase = "p1place";
+          this.currentPlayer = 1;
+          this.clearSelection();
+          this.setTab("tower");
+          this.updateUi();
+          this.showPass(`第 ${this.round} 回合`, "双方获得基础收入。请交给玩家1开始下一轮布置。", () => this.updateUi());
+        }
+
+        endGame(winner) {
+          if (this.online?.enabled) {
+            this.phase = "onlineWaitResult";
+            this.currentPlayer = 0;
+            this.log(`${playerName(winner)}成功夺回对方宝物，等待房间结果对账。`);
+            this.updateUi();
+            this.submitOnlineResult(winner);
+            return;
+          }
+          this.phase = "gameover";
+          this.currentPlayer = 0;
+          this.log(`${playerName(winner)}成功夺回对方宝物，获得胜利！`);
+          this.updateUi();
+          this.showGameOver(`${playerName(winner)}获胜！`, "本局验证结束。可以再来一局，或退出游戏。");
+        }
+
+        updateUi() {
+          if (!this.roundPill) return;
+          this.roundPill.textContent = `第 ${this.round} 回合`;
+          const phaseText = this.phase === "p1place" ? "玩家1布置" : this.phase === "p2place" ? "玩家2布置" : this.phase === "onlineLobby" ? "联机设置" : this.phase === "onlinePlace" ? `联机P${this.online.seat}布置` : this.phase === "onlineWaitOpponent" ? "等待对方" : this.phase === "onlineWaitResult" ? "结果对账" : this.phase === "onlineDesync" ? "结果异常" : this.phase === "settle" ? "结算中" : "已结束";
+          this.phasePill.textContent = phaseText;
+          this.phasePill.classList.toggle("p1", this.phase === "p1place" || (this.phase === "onlinePlace" && this.online?.seat === 1));
+          this.phasePill.classList.toggle("p2", this.phase === "p2place" || (this.phase === "onlinePlace" && this.online?.seat === 2));
+          this.p1Gold.textContent = `P1 金币 ${money(this.players[1].gold)}`;
+          this.p2Gold.textContent = `P2 金币 ${money(this.players[2].gold)}`;
+          const onlineEnabled = Boolean(this.online?.enabled);
+          if (this.roomTopPill) {
+            this.roomTopPill.classList.toggle("show", onlineEnabled);
+            this.roomTopPill.textContent = onlineEnabled ? `房间 ${this.online.roomCode || "----"} · P${this.online.seat || "?"}` : "";
+          }
+          if (this.onlineCard) this.onlineCard.classList.add("compact-hidden");
+          if (this.onlineModeText && !onlineEnabled) this.onlineModeText.textContent = "离线验证";
+          this.updateTopInfoLine();
+          this.updateRoundSubmitBar();
+          if (this.createRoomBtn) this.createRoomBtn.disabled = onlineEnabled;
+          if (this.joinRoomBtn) this.joinRoomBtn.disabled = onlineEnabled;
+          if (this.phase === "settle") this.timerText.textContent = `清场 · 剩余${this.activeMonsters.length}只`;
+          else if (this.isPlacementPhase()) this.timerText.textContent = `塔操作 ${this.towerOpsRemaining(this.currentPlayer)}/${CONFIG.limits.towerActionsPerRound}`;
+          else if (this.phase === "onlineWaitOpponent") this.timerText.textContent = "等待对方提交";
+          else if (this.phase === "onlineWaitResult") this.timerText.textContent = "结果对账";
+          else this.timerText.textContent = "结束";
+          const viewOwner = this.getViewOwner();
+          this.activeTitle.textContent = this.isPlacementPhase() ? `${playerName(viewOwner)}在下方 · 剩余${this.towerOpsRemaining(this.currentPlayer)}次` : (this.online?.enabled ? `联机视角P${this.online.seat}` : "结算视角P1");
+          this.refreshTowerPanelMode();
+          const activePlayer = this.currentPlayer || 1;
+          const towerCellReady = this.isPlacementPhase() && this.selectedCell?.kind === "towerCell";
+          const monsterCellReady = this.isPlacementPhase() && this.selectedCell?.kind === "monsterCell";
+          document.querySelectorAll("#tdPvpTowerShop .td-pvp-shop-btn").forEach(btn => {
+            const cfg = TOWER_TYPES[btn.dataset.type];
+            btn.classList.remove("active");
+            btn.disabled = !towerCellReady || !this.hasTowerActionCapacity(activePlayer) || this.players[activePlayer].gold < cfg.price;
+          });
+          document.querySelectorAll("#tdPvpMonsterShop .td-pvp-shop-btn").forEach(btn => {
+            const cfg = MONSTER_TYPES[btn.dataset.type];
+            btn.classList.remove("active");
+            btn.disabled = !monsterCellReady || !this.hasMonsterPlacementCapacity(activePlayer) || this.players[activePlayer].gold < cfg.price;
+          });
+          this.endTurnBtn.disabled = !this.isPlacementPhase();
+          this.quickEndBtn.disabled = !this.isPlacementPhase();
+          this.undoBtn.disabled = !this.isPlacementPhase();
+          this.removeBtn.disabled = !this.isPlacementPhase();
+          this.quickEndBtn.textContent = this.isPlacementPhase() ? (this.online?.enabled ? "提交" : "完成") : "结算";
+          this.endTurnBtn.textContent = this.phase === "p1place" ? "完成玩家1布置" : this.phase === "p2place" ? "完成玩家2布置" : this.phase === "onlinePlace" ? "提交本回合布置" : this.phase === "onlineWaitOpponent" ? "等待对方提交" : this.phase === "onlineWaitResult" ? "等待结果对账" : "等待结算";
+          this.updateUpgradePanelButtons();
+          this.updateSelectedInfo();
+        }
+
+        refreshTowerPanelMode() {
+          const tower = this.getSelectedTower();
+          const upgradeMode = Boolean(this.isPlacementPhase() && tower && tower.owner === this.currentPlayer);
+          this.towerShop.classList.toggle("is-hidden", upgradeMode);
+          this.upgradePanel.classList.toggle("active", upgradeMode);
+          this.towerTabBtn?.classList.toggle("upgrade-mode", upgradeMode);
+          if (this.towerTabBtn) this.towerTabBtn.textContent = upgradeMode ? "升级/进化" : "防御塔";
+          if (this.towerCardTitleLabel) this.towerCardTitleLabel.textContent = upgradeMode ? "升级/进化" : "防御塔";
+        }
+
+        updateUpgradePanelButtons() {
+          const tower = this.getSelectedTower();
+          if (!tower || tower.owner !== this.currentPlayer || !this.isPlacementPhase()) {
+            if (this.upgradeInfo) this.upgradeInfo.textContent = "点击己方防御塔后可升级或进化。";
+            [this.upgradeBtn, this.evolveABtn, this.evolveBBtn, this.towerSellBtn].forEach(btn => { if (btn) btn.disabled = true; });
+            return;
+          }
+          const player = this.currentPlayer;
+          const maxLevel = this.getTowerMaxLevel(tower);
+          const upgradeCost = this.getUpgradeCost(tower);
+          const options = this.getEvolutionOptions(tower);
+          const canTowerAction = this.hasTowerActionCapacity(player);
+          const stats = `Lv.${tower.level}/${maxLevel} · 秒伤${Math.round(this.getTowerDps(tower) * 10) / 10} · 射程${Math.round(this.getTowerRange(tower))}`;
+          const evoText = tower.evolutionKey ? `已进化：${this.getTowerName(tower)}` : "满级后可二选一进化";
+          this.upgradeInfo.textContent = `${this.getTowerName(tower)}｜${stats}｜${evoText}｜本回合塔操作剩余 ${this.towerOpsRemaining(player)} 次。`;
+          this.upgradeBtn.textContent = tower.level >= maxLevel ? "已满级" : `升级 ${upgradeCost}`;
+          this.upgradeBtn.disabled = tower.level >= maxLevel || !canTowerAction || this.players[player].gold < upgradeCost;
+          [this.evolveABtn, this.evolveBBtn].forEach((btn, index) => {
+            const option = options[index];
+            if (!option) { btn.disabled = true; btn.textContent = `进化${index === 0 ? "A" : "B"}`; return; }
+            const cost = this.getEvolutionCost(tower, option.key);
+            btn.textContent = `${option.label || (index === 0 ? "进化A" : "进化B")} ${option.name} ${cost}`;
+            btn.disabled = Boolean(tower.evolutionKey) || tower.level < maxLevel || !canTowerAction || this.players[player].gold < cost;
+          });
+          this.towerSellBtn.textContent = `出售 +${this.getTowerSellRefund(tower)}`;
+          this.towerSellBtn.disabled = false;
+        }
+
+        updateSelectedInfo() {
+          if (!this.selectedInfo) return;
+          if (!this.isPlacementPhase()) {
+            if (this.phase === "onlineWaitOpponent") {
+              this.selectedInfo.textContent = "已提交本回合布置，正在等待对方提交。";
+              this.ruleText.textContent = "D1 + Worker 只同步房间、回合和操作快照；结算仍在双方本地确定性运行。";
+              return;
+            }
+            if (this.phase === "onlineWaitResult") {
+              this.selectedInfo.textContent = "本回合结算完成，正在等待双方结果哈希对账。";
+              this.ruleText.textContent = "双方结果一致后自动进入下一回合；不一致会暂停为异常。";
+              return;
+            }
+            this.selectedInfo.textContent = this.online?.enabled ? "结算中：联机时会显示己方防御塔，对方防御塔仍保持隐藏。" : "结算中：防御塔图标隐藏，通过射程、攻击频率、减速效果判断塔型。";
+            this.ruleText.textContent = "结算会持续到场上怪物全部被击杀或一方夺宝成功，不再固定倒计时。";
+            return;
+          }
+          const player = this.currentPlayer;
+          const tower = this.getSelectedTower();
+          if (tower && tower.owner === player) {
+            this.selectedInfo.textContent = `${playerName(player)}选中：${this.getTowerName(tower)}。可升级、满级后进化；建塔/升级/进化共用 ${CONFIG.limits.towerActionsPerRound} 次限制。`;
+            this.ruleText.textContent = "出售不返还本回合塔操作次数；撤销可以返还最近一次建塔/升级/进化操作。";
+          } else if (this.selectedCell?.kind === "towerCell") {
+            this.selectedInfo.textContent = `${playerName(player)}已选中可放塔格：第${this.selectedCell.row + 1}行，第${this.selectedCell.col + 1}列。请选择防御塔类型。剩余塔操作 ${this.towerOpsRemaining(player)} 次。`;
+            this.ruleText.textContent = "点击己方非路线格会自动切到防御塔分页；不可放置区域不会被选中。";
+          } else if (this.selectedCell?.kind === "monsterCell") {
+            const limit = CONFIG.limits.monsterPlacementsPerRound;
+            const limitText = isFiniteLimit(limit) ? `本回合剩余 ${this.monsterPlacementsRemaining(player)} 个` : "当前不限制数量";
+            this.selectedInfo.textContent = `${playerName(player)}已选中路线出兵格：第${this.selectedCell.row + 1}行，第${this.selectedCell.col + 1}列。请选择怪物类型。${limitText}。`;
+            this.ruleText.textContent = "点击己方三路格会自动切到怪物分页；越靠近中线越早进入战场。";
+          } else if (this.selected.kind === "remove") {
+            this.selectedInfo.textContent = "拆除/取消模式：点击己方塔出售；点击本回合部署的怪物全额取消。";
+            this.ruleText.textContent = "隐藏塔保留，拆除只能操作自己当前可见的对象。";
+          } else {
+            this.selectedInfo.textContent = "请先点击棋盘：可放塔格会进入防御塔分页；路线格会进入怪物分页；己方塔会进入升级/进化分页。";
+            this.ruleText.textContent = `本回合塔操作限制：建塔/升级/进化总计最多 ${CONFIG.limits.towerActionsPerRound} 次。`;
+          }
+        }
+
+        log(text) {
+          this.logs.unshift(text);
+          this.logs = this.logs.slice(0, 80);
+          if (this.logEl) this.logEl.innerHTML = this.logs.map(item => `<div>${this.escape(item)}</div>`).join("");
+        }
+        escape(text) { return String(text).replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch])); }
+
+        drawPvpTowerSprite(ctx, spriteKey, size, alpha = 1) {
+          if (!spriteKey || typeof drawTowerSprite !== "function") return false;
+          try { return drawTowerSprite(ctx, spriteKey, 0, 0, size, alpha) === true; } catch (error) { return false; }
+        }
+        drawPvpMonsterSprite(ctx, spriteKey, size, alpha = 1) {
+          if (!spriteKey || typeof drawMonsterSprite !== "function") return false;
+          try { return drawMonsterSprite(ctx, spriteKey, 0, 0, size, alpha) === true; } catch (error) { return false; }
+        }
+
+        draw() {
+          if (!this.ctx) return;
+          const ctx = this.ctx;
+          ctx.clearRect(0, 0, this.worldW, this.worldH);
+          this.drawBoard(ctx);
+          this.drawPlacementGuides(ctx);
+          this.drawSelection(ctx);
+          this.drawTreasures(ctx);
+          for (const tower of this.towers) this.drawTower(ctx, tower);
+          for (const plan of this.plannedMonsters) this.drawPlannedMonster(ctx, plan);
+          for (const monster of this.activeMonsters) this.drawActiveMonster(ctx, monster);
+          this.drawEffects(ctx);
+        }
+
+        drawBoard(ctx) {
+          ctx.save();
+          ctx.fillStyle = "#07111f";
+          ctx.fillRect(0, 0, this.worldW, this.worldH);
+          for (let row = 0; row < CONFIG.rows; row += 1) {
+            for (let col = 0; col < CONFIG.cols; col += 1) {
+              const rect = this.viewCellRect(col, row);
+              const ownerZone = row < CONFIG.rows / 2 ? 2 : 1;
+              const zoneKind = this.getFieldZoneKind(ownerZone, col, row);
+              let fill = ownerZone === 1 ? (zoneKind === "near" ? "rgba(101,209,255,0.072)" : zoneKind === "far" ? "rgba(101,209,255,0.040)" : "rgba(101,209,255,0.028)") : (zoneKind === "near" ? "rgba(255,106,132,0.072)" : zoneKind === "far" ? "rgba(255,106,132,0.040)" : "rgba(255,106,132,0.028)");
+              if (row === CONFIG.rows / 2 - 1 || row === CONFIG.rows / 2) fill = "rgba(255,209,102,0.030)";
+              if (this.isLaneCol(col)) fill = "rgba(255,255,255,0.058)";
+              if (this.isIceCell(col, row)) fill = "rgba(116, 210, 255, 0.16)";
+              ctx.fillStyle = fill;
+              ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
+              if (this.isIceCell(col, row)) this.drawIceCell(ctx, rect.x, rect.y, rect.w, rect.h);
+              ctx.strokeStyle = "rgba(255,255,255,0.105)";
+              ctx.lineWidth = 1;
+              ctx.strokeRect(rect.x + 0.5, rect.y + 0.5, rect.w, rect.h);
+            }
+          }
+          this.drawLaneLines(ctx);
+          this.drawMidLine(ctx);
+          this.drawBoardLabels(ctx);
+          ctx.restore();
+        }
+
+        isOwnerHalfCell(owner, row) { return this.isInRowRange(row, CONFIG.towerRows[owner]); }
+        isNearFieldCell(owner, col, row) {
+          const treasure = CONFIG.treasureCells[owner];
+          const halfCols = Math.floor(CONFIG.nearFieldSize.cols / 2);
+          const halfRows = Math.floor(CONFIG.nearFieldSize.rows / 2);
+          return Math.abs(col - treasure.col) <= halfCols && Math.abs(row - treasure.row) <= halfRows;
+        }
+        getFieldZoneKind(owner, col, row) { if (!this.isOwnerHalfCell(owner, row)) return "neutral"; if (this.isNearFieldCell(owner, col, row)) return "near"; return "far"; }
+        drawNearFieldOutline(ctx, owner) {
+          const treasure = CONFIG.treasureCells[owner];
+          const halfCols = Math.floor(CONFIG.nearFieldSize.cols / 2);
+          const halfRows = Math.floor(CONFIG.nearFieldSize.rows / 2);
+          const minCol = clamp(treasure.col - halfCols, 0, CONFIG.cols - 1);
+          const maxCol = clamp(treasure.col + halfCols, 0, CONFIG.cols - 1);
+          const minRow = clamp(treasure.row - halfRows, 0, CONFIG.rows - 1);
+          const maxRow = clamp(treasure.row + halfRows, 0, CONFIG.rows - 1);
+          const a = this.viewCellRect(minCol, minRow);
+          const b = this.viewCellRect(maxCol, maxRow);
+          const x = Math.min(a.x, b.x);
+          const y = Math.min(a.y, b.y);
+          const w = (maxCol - minCol + 1) * CONFIG.cell;
+          const h = (maxRow - minRow + 1) * CONFIG.cell;
+          const relation = owner === this.getViewOwner() ? "己方" : "对方";
+          const color = owner === 1 ? "rgba(101,209,255,0.82)" : "rgba(255,106,132,0.82)";
+          ctx.save();
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 2.5;
+          ctx.setLineDash([9, 7]);
+          ctx.strokeRect(x + 3, y + 3, w - 6, h - 6);
+          ctx.setLineDash([]);
+          ctx.fillStyle = color;
+          ctx.font = "1000 11px system-ui, sans-serif";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText(`${relation}近场 3×5`, x + w / 2, y + 15);
+          ctx.restore();
+        }
+        drawIceCell(ctx, x, y, w, h) {
+          ctx.save();
+          const pad = 7, gx = x + pad, gy = y + pad, gw = w - pad * 2, gh = h - pad * 2;
+          const grad = ctx.createLinearGradient(gx, gy, gx + gw, gy + gh);
+          grad.addColorStop(0, "rgba(210, 247, 255, 0.95)"); grad.addColorStop(0.46, "rgba(94, 188, 232, 0.86)"); grad.addColorStop(1, "rgba(34, 106, 176, 0.78)");
+          ctx.fillStyle = grad; ctx.strokeStyle = "rgba(224, 252, 255, 0.75)"; ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.roundRect(gx, gy, gw, gh, 9); ctx.fill(); ctx.stroke();
+          ctx.globalAlpha = 0.72; ctx.strokeStyle = "rgba(255,255,255,0.72)"; ctx.lineWidth = 1.5;
+          ctx.beginPath(); ctx.moveTo(gx + gw * 0.24, gy + gh * 0.20); ctx.lineTo(gx + gw * 0.78, gy + gh * 0.58); ctx.moveTo(gx + gw * 0.36, gy + gh * 0.78); ctx.lineTo(gx + gw * 0.70, gy + gh * 0.28); ctx.stroke();
+          ctx.restore();
+        }
+        drawLaneLines(ctx) {
+          ctx.save();
+          for (const col of CONFIG.lanes) {
+            const x = (col + 0.5) * CONFIG.cell;
+            ctx.lineWidth = 5; ctx.setLineDash([14, 12]);
+            ctx.strokeStyle = "rgba(255,106,132,0.23)"; ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, this.worldH / 2); ctx.stroke();
+            ctx.strokeStyle = "rgba(101,209,255,0.23)"; ctx.beginPath(); ctx.moveTo(x, this.worldH / 2); ctx.lineTo(x, this.worldH); ctx.stroke();
+            ctx.setLineDash([]);
+          }
+          ctx.restore();
+        }
+        drawMidLine(ctx) {
+          const y = this.worldH / 2;
+          ctx.save(); ctx.strokeStyle = "rgba(255,209,102,0.78)"; ctx.lineWidth = 3; ctx.setLineDash([10, 8]); ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(this.worldW, y); ctx.stroke(); ctx.restore();
+        }
+        drawBoardLabels(ctx) {
+          ctx.save();
+          ctx.font = "1000 13px system-ui, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillStyle = "rgba(255,255,255,0.82)";
+          const topOwner = this.getViewOwner() === 1 ? 2 : 1;
+          const bottomOwner = this.getViewOwner();
+          ctx.fillText(`${playerName(topOwner)}领地（对方）`, this.worldW / 2, 18);
+          ctx.fillText(`${playerName(bottomOwner)}领地（己方）`, this.worldW / 2, this.worldH - 18);
+          this.drawNearFieldOutline(ctx, 2); this.drawNearFieldOutline(ctx, 1);
+          ctx.fillStyle = "rgba(255,255,255,0.50)"; ctx.font = "1000 10px system-ui, sans-serif"; ctx.textAlign = "right"; ctx.fillText("其余己方半区为远场", this.worldW - 8, this.worldH / 2 + 18);
+          ctx.fillStyle = "rgba(255,230,167,0.74)"; ctx.font = "1000 11px system-ui, sans-serif"; ctx.textAlign = "left"; ctx.fillText("中线冰带", 8, this.worldH / 2);
+          const labels = ["左路", "中路", "右路"];
+          for (let i = 0; i < CONFIG.lanes.length; i += 1) {
+            const x = (CONFIG.lanes[i] + 0.5) * CONFIG.cell;
+            ctx.fillStyle = "rgba(255,230,167,0.80)";
+            ctx.fillText(labels[i], x, this.worldH / 2);
+          }
+          ctx.restore();
+        }
+
+        drawPlacementGuides(ctx) {
+          if (!this.isPlacementPhase()) return;
+          const player = this.currentPlayer;
+          ctx.save();
+          for (let row = 0; row < CONFIG.rows; row += 1) {
+            for (let col = 0; col < CONFIG.cols; col += 1) {
+              const rect = this.viewCellRect(col, row);
+              if (this.isTowerAllowedCell(player, col, row) && !this.getTowerAtCell(col, row)) {
+                ctx.fillStyle = player === 1 ? "rgba(101,209,255,0.08)" : "rgba(255,106,132,0.08)";
+                ctx.fillRect(rect.x + 3, rect.y + 3, rect.w - 6, rect.h - 6);
+              }
+              if (this.isMonsterAllowedCell(player, col, row) && !this.getPlannedMonsterAtCell(col, row, player)) {
+                ctx.strokeStyle = "rgba(255,209,102,0.28)"; ctx.lineWidth = 2;
+                ctx.strokeRect(rect.x + 7, rect.y + 7, rect.w - 14, rect.h - 14);
+              }
+            }
+          }
+          ctx.strokeStyle = player === 1 ? "rgba(101,209,255,0.78)" : "rgba(255,106,132,0.78)";
+          ctx.lineWidth = 3; ctx.setLineDash([8, 7]); this.strokeRowRange(ctx, CONFIG.towerRows[player]);
+          ctx.strokeStyle = "rgba(255,209,102,0.76)"; this.strokeRowRange(ctx, CONFIG.spawnRows[player], 9);
+          ctx.restore();
+        }
+        strokeRowRange(ctx, range, inset = 3) {
+          const rowA = this.viewRow(range[0]); const rowB = this.viewRow(range[1]);
+          const top = Math.min(rowA, rowB) * CONFIG.cell; const height = (Math.abs(rowA - rowB) + 1) * CONFIG.cell;
+          ctx.strokeRect(inset, top + inset, this.worldW - inset * 2, height - inset * 2);
+        }
+        drawSelection(ctx) {
+          if (!this.isPlacementPhase() || !this.selectedCell) return;
+          const rect = this.viewCellRect(this.selectedCell.col, this.selectedCell.row);
+          ctx.save();
+          const isMonster = this.selectedCell.kind === "monsterCell";
+          const isTower = this.selectedCell.kind === "towerObject";
+          ctx.strokeStyle = isMonster ? "#ffd166" : isTower ? "#ffffff" : "#65d1ff";
+          ctx.lineWidth = 4;
+          ctx.setLineDash(isTower ? [] : [8, 6]);
+          ctx.strokeRect(rect.x + 5, rect.y + 5, rect.w - 10, rect.h - 10);
+          ctx.setLineDash([]);
+          ctx.globalAlpha = 0.18;
+          ctx.fillStyle = isMonster ? "#ffd166" : isTower ? "#ffffff" : "#65d1ff";
+          ctx.fillRect(rect.x + 6, rect.y + 6, rect.w - 12, rect.h - 12);
+          ctx.restore();
+        }
+
+        drawTreasures(ctx) { this.drawTreasure(ctx, 1); this.drawTreasure(ctx, 2); }
+        isTreasureCarried(owner) { return Boolean(this.getTreasureCarrier(owner)) || this.getTreasureState(owner).state === "carried"; }
+        drawTreasure(ctx, owner) {
+          if (this.isTreasureCarried(owner)) return;
+          const treasure = this.getTreasureState(owner);
+          const p0 = this.getTreasurePosition(owner);
+          const p = this.logicalToViewPoint(p0.x, p0.y);
+          ctx.save();
+          if (treasure.state === "dropped") {
+            const ratio = clamp((treasure.protectionTimer || 0) / Math.max(0.001, CONFIG.battle.treasureDropProtectionDuration || 1), 0, 1);
+            ctx.globalAlpha = 0.22 + ratio * 0.18;
+            ctx.fillStyle = "#ffd166";
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, CONFIG.battle.treasureDropProtectionRadius || 45, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = 0.72;
+            ctx.strokeStyle = "#fff1a8";
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, CONFIG.battle.treasureDropProtectionRadius || 45, 0, Math.PI * 2);
+            ctx.stroke();
+            if (treasure.protectionTimer > 0) {
+              ctx.globalAlpha = 0.95;
+              ctx.fillStyle = "#fff8dc";
+              ctx.font = "1000 10px system-ui, sans-serif";
+              ctx.textAlign = "center";
+              ctx.textBaseline = "middle";
+              ctx.fillText(`${treasure.protectionTimer.toFixed(1)}s`, p.x, p.y + 32);
+            }
+          }
+          ctx.translate(p.x, p.y);
+          this.drawTreasureGem(ctx, owner, 1, true);
+          ctx.restore();
+        }
+        drawTreasureGem(ctx, owner, scale = 1, withLabel = false) {
+          const accent = owner === 1 ? "#65d1ff" : "#ff6a84";
+          ctx.save(); ctx.scale(scale, scale); ctx.shadowColor = "rgba(255,209,102,0.55)"; ctx.shadowBlur = 18;
+          const grad = ctx.createLinearGradient(-20, -24, 22, 24); grad.addColorStop(0, "#fff6b8"); grad.addColorStop(0.36, "#ffd166"); grad.addColorStop(0.72, "#f59f00"); grad.addColorStop(1, "#8a4b00");
+          ctx.fillStyle = grad; ctx.strokeStyle = accent; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(0, -25); ctx.lineTo(22, -7); ctx.lineTo(14, 20); ctx.lineTo(0, 28); ctx.lineTo(-14, 20); ctx.lineTo(-22, -7); ctx.closePath(); ctx.fill(); ctx.stroke();
+          ctx.shadowBlur = 0; ctx.strokeStyle = "rgba(255,255,255,0.58)"; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(0, -25); ctx.lineTo(0, 27); ctx.moveTo(-22, -7); ctx.lineTo(0, 5); ctx.lineTo(22, -7); ctx.moveTo(-14, 20); ctx.lineTo(0, 5); ctx.lineTo(14, 20); ctx.stroke();
+          ctx.fillStyle = "rgba(255,255,255,0.74)"; ctx.beginPath(); ctx.ellipse(-7, -11, 5, 9, 0.72, 0, Math.PI * 2); ctx.fill();
+          ctx.strokeStyle = "rgba(255,255,255,0.88)"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-25, -23); ctx.lineTo(-17, -23); ctx.moveTo(-21, -27); ctx.lineTo(-21, -19); ctx.moveTo(21, -28); ctx.lineTo(27, -28); ctx.moveTo(24, -31); ctx.lineTo(24, -25); ctx.stroke();
+          if (withLabel) { ctx.fillStyle = "rgba(37,23,0,0.92)"; ctx.font = "1000 10px system-ui, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(owner === 1 ? "P1" : "P2", 0, 8); }
+          ctx.restore();
+        }
+
+        drawTower(ctx, tower) {
+          const reveal = (this.online?.enabled && tower.owner === this.online.seat) || (this.isPlacementPhase() && tower.owner === this.currentPlayer);
+          const p = this.logicalToViewPoint(tower.x, tower.y);
+          const color = this.getTowerColor(tower);
+          ctx.save(); ctx.translate(p.x, p.y); ctx.strokeStyle = tower.owner === 1 ? "#65d1ff" : "#ff6a84"; ctx.lineWidth = 3; ctx.shadowColor = reveal ? color : "rgba(255,255,255,0.25)"; ctx.shadowBlur = reveal ? 8 : 3;
+          let drawnSprite = false;
+          if (reveal) {
+            ctx.save(); ctx.globalAlpha = 0.20; ctx.fillStyle = color; ctx.beginPath(); ctx.ellipse(0, 17, 24, 12, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+            drawnSprite = this.drawPvpTowerSprite(ctx, this.getTowerSprite(tower), 48, 1);
+          }
+          if (!drawnSprite) { ctx.fillStyle = reveal ? color : "#526070"; ctx.beginPath(); ctx.roundRect(-19, -19, 38, 38, 9); ctx.fill(); }
+          ctx.strokeRect(-21, -21, 42, 42); ctx.shadowBlur = 0;
+          if (!drawnSprite || !reveal) { ctx.fillStyle = reveal ? "#102034" : "#f5f7fb"; ctx.font = "1000 18px system-ui, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(reveal ? this.getTowerShort(tower) : "?", 0, 1); }
+          if (reveal) { ctx.fillStyle = "rgba(0,0,0,0.62)"; ctx.fillRect(-18, 21, 36, 14); ctx.fillStyle = "rgba(255,255,255,0.94)"; ctx.font = "1000 9px system-ui, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(tower.evolutionKey ? "进化" : `Lv.${tower.level}`, 0, 28); }
+          ctx.restore();
+          if (reveal && this.selectedTowerId === tower.id && this.isPlacementPhase()) {
+            ctx.save(); ctx.globalAlpha = 0.08; ctx.fillStyle = color; ctx.beginPath(); ctx.arc(p.x, p.y, this.getTowerRange(tower), 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 0.32; ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(p.x, p.y, this.getTowerRange(tower), 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+          }
+        }
+
+        drawPlannedMonster(ctx, plan) {
+          if (this.isPlacementPhase() && plan.owner !== this.currentPlayer) return;
+          const cfg = MONSTER_TYPES[plan.type]; const p = this.logicalToViewPoint(plan.x, plan.y);
+          ctx.save(); ctx.translate(p.x, p.y); ctx.globalAlpha = 0.82;
+          const plannedSize = plan.type === "boss" ? 58 : plan.type === "tank" ? 46 : 38;
+          const usedSprite = this.drawPvpMonsterSprite(ctx, cfg.sprite, plannedSize, 1);
+          if (!usedSprite) { ctx.fillStyle = cfg.color; ctx.strokeStyle = "rgba(255,255,255,0.85)"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, 0, 15, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); ctx.fillStyle = "#08111f"; ctx.font = "900 12px system-ui, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(cfg.short, 0, 1); }
+          ctx.restore();
+        }
+        drawActiveMonster(ctx, monster) {
+          const cfg = MONSTER_TYPES[monster.type]; const radius = monster.type === "boss" ? 25 : monster.type === "tank" ? 19 : monster.type === "runner" ? 13 : 15; const p = this.logicalToViewPoint(monster.x, monster.y);
+          ctx.save(); ctx.translate(p.x, p.y); const activeSprite = this.drawPvpMonsterSprite(ctx, cfg.sprite, monster.type === "boss" ? 68 : monster.type === "tank" ? 50 : monster.type === "runner" ? 38 : 42, 1); ctx.strokeStyle = monster.owner === 1 ? "#65d1ff" : "#ff6a84"; ctx.lineWidth = monster.carrying ? 4 : 2;
+          if (!activeSprite) { ctx.fillStyle = cfg.color; ctx.beginPath(); if (monster.type === "runner") { ctx.moveTo(0, -radius - 3); ctx.lineTo(radius + 4, radius); ctx.lineTo(-radius - 4, radius); ctx.closePath(); } else if (monster.type === "tank") { ctx.roundRect(-radius, -radius, radius * 2, radius * 2, 6); } else if (monster.type === "boss") { for (let i = 0; i < 12; i += 1) { const a = -Math.PI / 2 + i * Math.PI / 6; const rr = i % 2 === 0 ? radius + 5 : radius * 0.75; const px = Math.cos(a) * rr; const py = Math.sin(a) * rr; if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py); } ctx.closePath(); } else { ctx.arc(0, 0, radius, 0, Math.PI * 2); } ctx.fill(); ctx.stroke(); ctx.fillStyle = "#08111f"; ctx.font = "900 12px system-ui, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(cfg.short, 0, 1); } else { ctx.beginPath(); ctx.arc(0, 0, radius + 4, 0, Math.PI * 2); ctx.stroke(); }
+          if (monster.carrying) { ctx.save(); ctx.translate(0, -radius - 18); this.drawTreasureGem(ctx, enemyOf(monster.owner), 0.42, false); ctx.restore(); }
+          ctx.restore();
+          const w = monster.type === "boss" ? 48 : 34, h = monster.type === "boss" ? 6 : 5, pct = clamp(monster.hp / monster.maxHp, 0, 1); ctx.save(); ctx.fillStyle = "rgba(0,0,0,0.55)"; ctx.fillRect(p.x - w / 2, p.y - radius - 13, w, h); ctx.fillStyle = pct > 0.5 ? "#53d37f" : pct > 0.25 ? "#ffd166" : "#ff5c7a"; ctx.fillRect(p.x - w / 2, p.y - radius - 13, w * pct, h); ctx.restore();
+        }
+        drawEffects(ctx) {
+          ctx.save();
+          for (const effect of this.effects) {
+            const alpha = clamp(effect.life / 0.75, 0, 1);
+            if (effect.type === "beam") { const a = this.logicalToViewPoint(effect.x1, effect.y1); const b = this.logicalToViewPoint(effect.x2, effect.y2); ctx.globalAlpha = clamp(effect.life / 0.10, 0, 1) * 0.92; ctx.strokeStyle = effect.color; ctx.lineWidth = effect.width || 4; ctx.shadowColor = effect.color; ctx.shadowBlur = 12; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); ctx.shadowBlur = 0; }
+            if (effect.type === "aoe") { const p = this.logicalToViewPoint(effect.x, effect.y); ctx.globalAlpha = clamp(effect.life / 0.18, 0, 1) * 0.32; ctx.fillStyle = effect.color; ctx.beginPath(); ctx.arc(p.x, p.y, effect.r, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = clamp(effect.life / 0.18, 0, 1) * 0.80; ctx.strokeStyle = effect.color; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(p.x, p.y, effect.r, 0, Math.PI * 2); ctx.stroke(); }
+            if (effect.type === "slow") { const p = this.logicalToViewPoint(effect.x, effect.y); ctx.globalAlpha = clamp(effect.life / 0.14, 0, 1) * 0.82; ctx.strokeStyle = effect.color; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(p.x, p.y, effect.r, 0, Math.PI * 2); ctx.stroke(); }
+            if (effect.type === "text") { const p = this.logicalToViewPoint(effect.x, effect.y); ctx.globalAlpha = alpha; ctx.fillStyle = effect.color; ctx.font = "1000 13px system-ui, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(effect.text, p.x, p.y - (1 - alpha) * 18); }
+          }
+          ctx.restore();
+        }
+      }
+
+      function installEntry() {
+        const actions = document.querySelector(".main-menu-actions");
+        if (!actions || document.getElementById("tdPvpEntryBtn")) return;
+        const btn = document.createElement("button");
+        btn.id = "tdPvpEntryBtn";
+        btn.className = "btn-muted main-menu-btn td-pvp-entry-btn";
+        btn.type = "button";
+        btn.setAttribute("data-no-i18n", "true");
+        btn.textContent = "本地/房间对战";
+        const startBtn = document.getElementById("mainMenuStartBtn");
+        if (startBtn && startBtn.parentElement === actions) actions.insertBefore(btn, startBtn);
+        else actions.appendChild(btn);
+        btn.addEventListener("click", () => {
+          if (!window.__tdPvpLocalGame) window.__tdPvpLocalGame = new LocalPvpGame();
+          window.__tdPvpLocalGame.open();
+        });
+      }
+
+      if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", installEntry);
+      else installEntry();
+      window.tdOpenLocalPvp = function () {
+        if (!window.__tdPvpLocalGame) window.__tdPvpLocalGame = new LocalPvpGame();
+        window.__tdPvpLocalGame.open();
+      };
     }());
   </script>
 
