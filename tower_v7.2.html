@@ -642,7 +642,16 @@
     .deck-card-relic { border-color: rgba(255,209,102,0.70); }
 
     @media (max-width: 900px) {
-      .deck-defense-status { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .deck-defense-status {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 5px;
+      }
+      .deck-defense-stat {
+        padding: 6px 5px;
+        border-radius: 10px;
+      }
+      .deck-defense-stat span { font-size: 9.5px; }
+      .deck-defense-stat strong { font-size: 14px; }
       .deck-defense-hand {
         display: flex;
         overflow-x: auto;
@@ -2858,6 +2867,11 @@
         border-right: 0;
       }
 
+      body.deck-defense-mode .canvas-wrap {
+        height: calc(100vw * 6 / 9);
+        max-height: calc(100vw * 6 / 9);
+      }
+
       .side-panel {
         flex: 1 1 auto;
         min-height: 0;
@@ -4293,6 +4307,11 @@
       laserWidth: 3,
       worldPadding: 0
     };
+
+    const DEFAULT_GRID_ROWS = GAME_CONFIG.gridRows;
+    const DEFAULT_GRID_COLS = GAME_CONFIG.gridCols;
+    const DECK_DEFENSE_GRID_ROWS = 6;
+    const DECK_DEFENSE_GRID_COLS = 9;
 
     const MONSTER_TYPES = {
       normal: {
@@ -5792,10 +5811,10 @@
 
     const DECK_DEFENSE_TERRAIN_MAP = [
       { col: 2, row: 1, type: "highGround" },
-      { col: 6, row: 5, type: "energy" },
-      { col: 4, row: 4, type: "focus" },
+      { col: 6, row: 4, type: "energy" },
+      { col: 4, row: 3, type: "focus" },
       { col: 3, row: 3, type: "workshop" },
-      { col: 2, row: 6, type: "interference" },
+      { col: 2, row: 4, type: "interference" },
       { col: 6, row: 1, type: "lowland" }
     ];
 
@@ -11815,9 +11834,27 @@
         this.loop(0);
       }
 
+      configureGridForMode(modeKey = DEFAULT_GAME_MODE_KEY) {
+        const isDeckDefense = getGameModeKey(modeKey) === DECK_DEFENSE_MODE_KEY;
+        GAME_CONFIG.gridRows = isDeckDefense ? DECK_DEFENSE_GRID_ROWS : DEFAULT_GRID_ROWS;
+        GAME_CONFIG.gridCols = isDeckDefense ? DECK_DEFENSE_GRID_COLS : DEFAULT_GRID_COLS;
+        this.worldWidth = GAME_CONFIG.gridCols * GAME_CONFIG.cellSize;
+        this.worldHeight = GAME_CONFIG.gridRows * GAME_CONFIG.cellSize;
+        const canvasWrap = document.getElementById("canvasWrap");
+        if (canvasWrap) canvasWrap.style.aspectRatio = `${GAME_CONFIG.gridCols} / ${GAME_CONFIG.gridRows}`;
+        this.nestPosition = this.cellCenter(0, 0);
+        if (this.monsterSpatialCellSize) {
+          this.monsterSpatialCols = Math.ceil(this.worldWidth / this.monsterSpatialCellSize);
+          this.monsterSpatialRows = Math.ceil(this.worldHeight / this.monsterSpatialCellSize);
+        }
+        this.monsterSpatialBuckets = [];
+        this.needsResize = true;
+      }
+
       resetState(modeKey = DEFAULT_GAME_MODE_KEY) {
         this.gameModeKey = getGameModeKey(modeKey);
         this.gameMode = getGameModeConfig(this.gameModeKey);
+        this.configureGridForMode(this.gameModeKey);
         this.runAccountId = "";
         this.runAccountDisplayName = "";
         this.runStartedAsGuest = true;
