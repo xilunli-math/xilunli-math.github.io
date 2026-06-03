@@ -524,6 +524,27 @@
       margin-bottom: 10px;
     }
 
+    .deck-defense-intent,
+    .deck-defense-selected,
+    .deck-defense-powers {
+      margin: 6px 0;
+      padding: 8px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.045);
+      color: rgba(255,255,255,0.88);
+      font-size: 11.5px;
+      line-height: 1.35;
+      font-weight: 760;
+    }
+
+    .deck-defense-intent strong,
+    .deck-defense-selected strong,
+    .deck-defense-powers strong {
+      color: #ffd166;
+      font-weight: 1000;
+    }
+
     .deck-defense-stat {
       min-width: 0;
       padding: 8px;
@@ -650,11 +671,16 @@
       font-weight: 730;
     }
 
+    .deck-card-structure,
     .deck-card-build { border-color: rgba(101,209,255,0.55); }
+    .deck-card-skill,
     .deck-card-upgrade { border-color: rgba(83,211,127,0.55); }
+    .deck-card-power,
     .deck-card-evolution { border-color: rgba(176,132,255,0.62); }
-    .deck-card-tactic { border-color: rgba(255,159,67,0.62); }
+    .deck-card-command,
+    .deck-card-tactic { border-color: rgba(255,159,67,0.66); }
     .deck-card-relic { border-color: rgba(255,209,102,0.70); }
+    .deck-card-exhaust { box-shadow: inset 0 0 0 1px rgba(255,209,102,0.55), 0 8px 22px rgba(0,0,0,0.24); }
 
     @media (max-width: 900px) {
       .deck-defense-status {
@@ -3887,14 +3913,18 @@
           </div>
           <div class="deck-defense-status">
             <div class="deck-defense-stat"><span>波次</span><strong id="deckDefenseWaveText">1/10</strong></div>
-            <div class="deck-defense-stat"><span>AP</span><strong id="deckDefenseApText">3/3</strong></div>
+            <div class="deck-defense-stat"><span>回合/能量</span><strong id="deckDefenseApText">1 · 3/3</strong></div>
             <div class="deck-defense-stat"><span>宝物</span><strong id="deckDefenseTreasureText">安全</strong></div>
           </div>
+          <div class="deck-defense-intent" id="deckDefenseIntentText"><strong>敌方意图</strong><br>暂无敌人。</div>
+          <div class="deck-defense-selected" id="deckDefenseSelectedText"><strong>选中卡牌</strong><br>未选择。</div>
+          <div class="deck-defense-powers" id="deckDefensePowersText"><strong>能力/遗物</strong><br>暂无。</div>
           <div class="deck-defense-actions">
-            <button id="deckDefenseStartWaveBtn" class="btn-good" type="button">开始波次</button>
+            <button id="deckDefenseStartWaveBtn" class="btn-good" type="button">结束回合</button>
             <div class="deck-defense-piles" aria-label="牌堆信息">
               <span id="deckDefenseDrawText">抽牌 0</span>
               <span id="deckDefenseDiscardText">弃牌 0</span>
+              <span id="deckDefenseExhaustText">消耗 0</span>
             </div>
           </div>
           <div class="deck-defense-hand" id="deckDefenseHand"></div>
@@ -5306,8 +5336,8 @@
       deck_defense: {
         key: "deck_defense",
         name: "塔牌构筑",
-        description: "Deck Defense：使用卡牌构筑防线，守住宝物。",
-        startMessage: "塔牌构筑开始！每波抽牌并使用 AP 打出卡牌，点击“开始波次”后迎战固定怪物。",
+        description: "使用卡牌构筑防线，守住宝物。",
+        startMessage: "塔牌构筑开始！每波是一场卡牌战斗：出牌部署防线，点击“结束回合”进入短暂结算窗口。",
         initialGold: 0,
         disableDynamicSystems: true
       }
@@ -5826,15 +5856,22 @@
 
     const DECK_DEFENSE_MODE_KEY = "deck_defense";
     const DECK_DEFENSE_MAX_WAVES = 10;
-    const DECK_DEFENSE_HAND_LIMIT = 7;
+    const DECK_DEFENSE_HAND_LIMIT = 10;
+    const DECK_DEFENSE_DRAW_PER_TURN = 5;
+    const DECK_DEFENSE_BASE_ENERGY = 3;
+    const DECK_DEFENSE_RESOLVE_SECONDS = 2.75;
     const DECK_DEFENSE_DEFAULT_SPAWN_GAP = 0.72;
     const DECK_DEFENSE_FIRST_WAVE_SPAWN_GAP = 3;
 
     const DECK_DEFENSE_CARD_TYPE_LABELS = {
-      build: "建塔",
-      upgrade: "升级",
-      evolution: "进化",
-      tactic: "战术",
+      structure: "建设",
+      command: "指令",
+      skill: "技能",
+      power: "能力",
+      build: "建设",
+      upgrade: "技能",
+      evolution: "能力",
+      tactic: "技能",
       relic: "遗物"
     };
 
@@ -5848,7 +5885,7 @@
     ];
 
     const DECK_DEFENSE_WAVES = [
-      { normal: 2 },
+      { normal: 4 },
       { normal: 5, elite: 1 },
       { normal: 6, runner: 2 },
       { normalCamo: 2, normal: 4 },
@@ -5865,34 +5902,35 @@
       ["slow_tower", 2],
       ["sniper_tower", 1],
       ["aoe_tower", 1],
-      ["quick_upgrade", 2],
+      ["focus_fire", 2],
+      ["quick_reinforce", 1],
+      ["scout", 1],
       ["magnet", 1]
     ];
 
     const DECK_DEFENSE_RELICS = [
       {
-        id: "action_core",
+        id: "relic_energy_core",
         name: "行动核心",
-        effectText: "每波 AP +1，但每波抽牌 -1。",
+        effectText: "每场战斗第 1 回合能量 +1。",
         apply(game) {
-          game.deckDefense.relicState.apBonus += 1;
-          game.deckDefense.relicState.drawPenalty += 1;
+          game.deckDefense.relicState.firstTurnEnergyBonus += 1;
         }
       },
       {
-        id: "spare_blueprint",
-        name: "备用图纸",
-        effectText: "每波第一张建塔牌费用 -1，最低为 0。",
+        id: "relic_bag_of_blueprints",
+        name: "蓝图袋",
+        effectText: "每场战斗起手额外抽 1 张建设牌。",
         apply(game) {
-          game.deckDefense.relicState.firstBuildDiscount = true;
+          game.deckDefense.relicState.openingStructureDraw += 1;
         }
       },
       {
-        id: "emergency_magnet_core",
+        id: "relic_emergency_magnet",
         name: "应急磁芯",
-        effectText: "每局第一次吸铁石费用为 0。",
+        effectText: "每场战斗第一次吸铁石费用 -1。",
         apply(game) {
-          game.deckDefense.relicState.firstMagnetFree = true;
+          game.deckDefense.relicState.firstMagnetDiscount = 1;
         }
       }
     ];
@@ -5901,235 +5939,143 @@
       basic_tower: {
         id: "basic_tower",
         name: "普通塔",
-        type: "build",
+        type: "structure",
         rarity: "common",
         cost: 1,
-        targetType: "emptyCell",
+        targetType: "tile",
         towerType: "normal",
-        description: "在一个可建造格子建造普通塔。"
+        description: "在可建造格生成临时普通塔。"
       },
       slow_tower: {
         id: "slow_tower",
         name: "减速塔",
-        type: "build",
+        type: "structure",
         rarity: "common",
         cost: 1,
-        targetType: "emptyCell",
+        targetType: "tile",
         towerType: "slow",
-        description: "在一个可建造格子建造减速塔。"
+        description: "在可建造格生成临时减速塔。"
       },
       sniper_tower: {
         id: "sniper_tower",
         name: "远程塔",
-        type: "build",
+        type: "structure",
         rarity: "common",
         cost: 2,
-        targetType: "emptyCell",
+        targetType: "tile",
         towerType: "sniper",
-        description: "在一个可建造格子建造远程塔。"
+        description: "在可建造格生成临时远程塔。"
       },
       aoe_tower: {
         id: "aoe_tower",
         name: "AOE塔",
-        type: "build",
+        type: "structure",
         rarity: "common",
         cost: 2,
-        targetType: "emptyCell",
+        targetType: "tile",
         towerType: "aoe",
-        description: "在一个可建造格子建造 AOE 塔。"
+        description: "在可建造格生成临时 AOE 塔。"
       },
-      trap_tower: {
-        id: "trap_tower",
-        name: "诱捕塔",
-        type: "build",
+      focus_fire: {
+        id: "focus_fire",
+        name: "集火指令",
+        type: "command",
         rarity: "common",
         cost: 1,
-        targetType: "emptyCell",
-        towerType: "lure",
-        description: "在一个可建造格子建造诱捕塔。"
+        targetType: "monster",
+        description: "选择一个怪物，所有可攻击塔立即攻击一次。"
       },
-      quick_upgrade: {
-        id: "quick_upgrade",
-        name: "快速升级",
-        type: "upgrade",
-        rarity: "common",
-        cost: 1,
-        targetType: "tower",
-        description: "目标塔升级 1 级，最高 3 级。"
-      },
-      temporary_firepower: {
-        id: "temporary_firepower",
-        name: "临时火力",
-        type: "upgrade",
+      quick_reinforce: {
+        id: "quick_reinforce",
+        name: "快速加固",
+        type: "skill",
         rarity: "common",
         cost: 1,
         targetType: "tower",
-        description: "本波目标塔伤害 +60%。"
+        description: "选择一座塔，本场战斗伤害 +20%。"
       },
       range_tuning: {
         id: "range_tuning",
         name: "射程调校",
-        type: "upgrade",
+        type: "skill",
         rarity: "common",
         cost: 1,
         targetType: "tower",
-        description: "本波目标塔射程 +35%。"
-      },
-      cooldown_lubricant: {
-        id: "cooldown_lubricant",
-        name: "冷却润滑",
-        type: "upgrade",
-        rarity: "rare",
-        cost: 1,
-        targetType: "tower",
-        description: "本波目标塔攻击频率 +35%。"
-      },
-      line_calibration: {
-        id: "line_calibration",
-        name: "全线校准",
-        type: "upgrade",
-        rarity: "rare",
-        cost: 2,
-        targetType: "none",
-        description: "本波最多 5 座塔伤害 +25%。"
-      },
-      rapid_module: {
-        id: "rapid_module",
-        name: "连射模块",
-        type: "evolution",
-        rarity: "rare",
-        cost: 2,
-        targetType: "tower",
-        requiredTower: "normal",
-        evolutionKey: "rapid",
-        description: "等级 3 普通塔进化为连射塔。"
-      },
-      pierce_module: {
-        id: "pierce_module",
-        name: "穿透模块",
-        type: "evolution",
-        rarity: "rare",
-        cost: 2,
-        targetType: "tower",
-        requiredTower: "normal",
-        evolutionKey: "pierce",
-        description: "等级 3 普通塔进化为穿透塔。"
-      },
-      frost_module: {
-        id: "frost_module",
-        name: "冰霜模块",
-        type: "evolution",
-        rarity: "rare",
-        cost: 2,
-        targetType: "tower",
-        requiredTower: "slow",
-        evolutionKey: "frost",
-        description: "等级 3 减速塔进化为冰霜塔。"
-      },
-      orbital_module: {
-        id: "orbital_module",
-        name: "轨道模块",
-        type: "evolution",
-        rarity: "rare",
-        cost: 2,
-        targetType: "tower",
-        requiredTower: "sniper",
-        evolutionKey: "railgun",
-        description: "等级 3 远程塔进化为轨道狙击塔。"
-      },
-      sentinel_module: {
-        id: "sentinel_module",
-        name: "守望模块",
-        type: "evolution",
-        rarity: "rare",
-        cost: 2,
-        targetType: "tower",
-        requiredTower: "sniper",
-        evolutionKey: "guardian",
-        description: "等级 3 远程塔进化为守望塔。"
-      },
-      molten_module: {
-        id: "molten_module",
-        name: "熔火模块",
-        type: "evolution",
-        rarity: "rare",
-        cost: 2,
-        targetType: "tower",
-        requiredTower: "aoe",
-        evolutionKey: "ember",
-        description: "等级 3 AOE 塔进化为熔火塔。"
+        description: "选择一座塔，本场战斗射程 +15%。"
       },
       magnet: {
         id: "magnet",
         name: "吸铁石",
-        type: "tactic",
+        type: "skill",
         rarity: "common",
         cost: 1,
         targetType: "none",
-        description: "吸回掉落宝物，不能抢回搬运中的宝物。"
+        keywords: ["exhaust"],
+        description: "若宝物掉落，则吸回初始点。消耗。"
       },
       treasure_shield: {
         id: "treasure_shield",
         name: "宝物护盾",
-        type: "tactic",
+        type: "skill",
         rarity: "common",
         cost: 1,
         targetType: "none",
-        description: "本波宝物掉落保护时间 +2 秒。"
+        description: "本场战斗宝物掉落保护时间 +2 秒。"
       },
       scout: {
         id: "scout",
         name: "侦查",
-        type: "tactic",
+        type: "skill",
         rarity: "common",
         cost: 0,
         targetType: "none",
-        description: "查看下一波怪物并抽 1 张牌。"
+        description: "抽 1 张；本回合显示详细怪物意图。"
       },
-      ice_fracture: {
-        id: "ice_fracture",
-        name: "冰裂反应",
-        type: "tactic",
+      workshop_protocol: {
+        id: "workshop_protocol",
+        name: "工坊协议",
+        type: "power",
         rarity: "rare",
         cost: 1,
         targetType: "none",
-        description: "本波被减速怪物受到远程塔伤害 +30%。"
+        description: "能力：本场战斗每回合第一张建设牌费用 -1。"
       },
-      burning_ammo: {
-        id: "burning_ammo",
-        name: "燃烧弹药",
-        type: "tactic",
+      freeze_path: {
+        id: "freeze_path",
+        name: "冻结路径",
+        type: "skill",
         rarity: "rare",
         cost: 1,
         targetType: "none",
-        description: "本波 AOE 塔命中后附加持续伤害。"
+        description: "下一结算窗口怪物速度 -35%。"
       },
-      carrier_mark: {
-        id: "carrier_mark",
-        name: "搬运者标记",
-        type: "tactic",
+      blueprint_search: {
+        id: "blueprint_search",
+        name: "蓝图检索",
+        type: "skill",
+        rarity: "rare",
+        cost: 1,
+        targetType: "none",
+        description: "抽 2 张建设牌；若没有建设牌，则抽 1 张。"
+      },
+      full_calibration: {
+        id: "full_calibration",
+        name: "全线校准",
+        type: "skill",
+        rarity: "rare",
+        cost: 2,
+        targetType: "none",
+        description: "本场战斗所有塔伤害 +20%。"
+      },
+      tower_storm: {
+        id: "tower_storm",
+        name: "塔阵风暴",
+        type: "command",
         rarity: "epic",
-        cost: 1,
+        cost: 3,
         targetType: "none",
-        description: "本波所有可攻击塔优先攻击搬宝怪。"
-      },
-      emergency_repair: {
-        id: "emergency_repair",
-        name: "紧急维修",
-        type: "tactic",
-        rarity: "rare",
-        cost: 1,
-        targetType: "tower",
-        description: "移除目标塔的临时削弱或停机效果。"
-      },
-      lure_beacon: {
-        id: "lure_beacon",
-        name: "诱导信标",
-        type: "tactic",
-        rarity: "rare",
-        cost: 1,
-        targetType: "cell",
-        description: "本波放置一个视觉信标。"
+        keywords: ["exhaust"],
+        description: "所有塔立即攻击两次。消耗。"
       }
     };
 
@@ -6145,10 +6091,11 @@
       constructor(game) {
         this.game = game;
         this.instanceId = 0;
+        this.masterDeck = [];
         this.drawPile = [];
         this.hand = [];
         this.discardPile = [];
-        this.exhaustedPile = [];
+        this.exhaustPile = [];
       }
 
       createInstance(cardId) {
@@ -6159,13 +6106,21 @@
       }
 
       initStartingDeck() {
+        this.masterDeck = [];
+        this.hand = [];
         this.drawPile = [];
+        this.discardPile = [];
+        this.exhaustPile = [];
+        for (const [cardId, count] of DECK_DEFENSE_STARTING_DECK) {
+          for (let i = 0; i < count; i += 1) this.masterDeck.push(cardId);
+        }
+      }
+
+      startCombat() {
+        this.drawPile = this.masterDeck.map(cardId => this.createInstance(cardId));
         this.hand = [];
         this.discardPile = [];
-        this.exhaustedPile = [];
-        for (const [cardId, count] of DECK_DEFENSE_STARTING_DECK) {
-          for (let i = 0; i < count; i += 1) this.drawPile.push(this.createInstance(cardId));
-        }
+        this.exhaustPile = [];
         this.shuffleDrawPile();
       }
 
@@ -6195,15 +6150,36 @@
         return drawn;
       }
 
+      drawCardsByPredicate(count, predicate) {
+        const drawn = [];
+        const limit = DECK_DEFENSE_HAND_LIMIT;
+        for (let i = 0; i < count && this.hand.length < limit; i += 1) {
+          this.refillDrawPileFromDiscard();
+          if (!this.drawPile.length) break;
+          let index = this.drawPile.findIndex(instance => {
+            const card = getDeckDefenseCard(instance.cardId);
+            return predicate(card, instance);
+          });
+          if (index < 0) {
+            if (drawn.length === 0) return drawn;
+            break;
+          }
+          const [instance] = this.drawPile.splice(index, 1);
+          this.hand.push(instance);
+          drawn.push(instance);
+        }
+        return drawn;
+      }
+
       forceFirstWaveProtection() {
         const hasProtectedCard = this.hand.some(instance => {
           const card = getDeckDefenseCard(instance.cardId);
-          return card?.type === "build" && this.game.getDeckDefenseCardCost(card) <= 1;
+          return card?.type === "structure" && this.game.getDeckDefenseCardCost(card) <= 1;
         });
         if (hasProtectedCard) return;
         const index = this.drawPile.findIndex(instance => {
           const card = getDeckDefenseCard(instance.cardId);
-          return card?.type === "build" && this.game.getDeckDefenseCardCost(card) <= 1;
+          return card?.type === "structure" && this.game.getDeckDefenseCardCost(card) <= 1;
         });
         if (index < 0 || this.hand.length <= 0) return;
         const [protectedCard] = this.drawPile.splice(index, 1);
@@ -6219,14 +6195,24 @@
       }
 
       discardHand() {
-        while (this.hand.length) this.discardPile.push(this.hand.shift());
+        const retained = [];
+        while (this.hand.length) {
+          const instance = this.hand.shift();
+          const card = getDeckDefenseCard(instance.cardId);
+          if (card?.keywords?.includes("retain")) retained.push(instance);
+          else this.discardPile.push(instance);
+        }
+        this.hand = retained;
       }
 
-      playCard(instanceId) {
+      playCard(instanceId, destination = "discard") {
         const index = this.hand.findIndex(card => card.instanceId === instanceId);
         if (index < 0) return null;
         const [instance] = this.hand.splice(index, 1);
-        this.discardPile.push(instance);
+        if (destination === "exhaust") this.exhaustPile.push(instance);
+        else if (destination === "power") {
+          // Power instances are tracked in combat state, not in a pile.
+        } else this.discardPile.push(instance);
         return instance;
       }
 
@@ -6237,8 +6223,7 @@
 
       addCardToDeck(cardId) {
         if (!DECK_DEFENSE_CARDS[cardId]) return;
-        this.drawPile.push(this.createInstance(cardId));
-        this.shuffleDrawPile();
+        this.masterDeck.push(cardId);
       }
     }
 
@@ -10695,9 +10680,13 @@
           deckDefenseWaveText: document.getElementById("deckDefenseWaveText"),
           deckDefenseApText: document.getElementById("deckDefenseApText"),
           deckDefenseTreasureText: document.getElementById("deckDefenseTreasureText"),
+          deckDefenseIntentText: document.getElementById("deckDefenseIntentText"),
+          deckDefenseSelectedText: document.getElementById("deckDefenseSelectedText"),
+          deckDefensePowersText: document.getElementById("deckDefensePowersText"),
           deckDefenseStartWaveBtn: document.getElementById("deckDefenseStartWaveBtn"),
           deckDefenseDrawText: document.getElementById("deckDefenseDrawText"),
           deckDefenseDiscardText: document.getElementById("deckDefenseDiscardText"),
+          deckDefenseExhaustText: document.getElementById("deckDefenseExhaustText"),
           deckDefenseHand: document.getElementById("deckDefenseHand"),
           towerInfo: document.getElementById("towerInfo"),
           activeBuffList: document.getElementById("activeBuffList"),
@@ -11309,9 +11298,10 @@
         if (this.els.pauseResumeBtn) {
           const isRunning = g.status === GAME_STATUS.RUNNING;
           const isPaused = g.status === GAME_STATUS.PAUSED;
+          const deckPauseLocked = isDeckDefense && !["RESOLVE_WINDOW"].includes(g.deckDefense?.phase);
           this.els.pauseResumeBtn.textContent = isRunning ? "暂停" : "继续";
           this.els.pauseResumeBtn.className = isRunning ? "btn-warn" : "btn-good";
-          this.els.pauseResumeBtn.disabled = g.buffSelectionOpen || (isDeckDefense && g.deckDefense?.phase !== "battle") || (!isRunning && !isPaused);
+          this.els.pauseResumeBtn.disabled = g.buffSelectionOpen || deckPauseLocked || (!isRunning && !isPaused);
         }
         if (this.els.speedToggleBtn) {
           const speedActive = g.getGameSpeedMultiplier() > 1;
@@ -11398,16 +11388,33 @@
           if (this.els.deckDefenseHand) this.els.deckDefenseHand.innerHTML = "";
           return;
         }
-        const phaseText = state.phase === "battle" ? "战斗" : state.phase === "reward" ? "奖励" : "部署";
+        const phaseTextMap = {
+          IDLE: "准备",
+          PLAYER_TURN: "玩家回合",
+          RESOLVE_WINDOW: "结算",
+          reward: "奖励",
+          complete: "通关"
+        };
+        const phaseText = phaseTextMap[state.phase] || "准备";
         if (this.els.deckDefensePhaseText) this.els.deckDefensePhaseText.textContent = phaseText;
         if (this.els.deckDefenseWaveText) this.els.deckDefenseWaveText.textContent = `${state.wave}/${DECK_DEFENSE_MAX_WAVES}`;
-        if (this.els.deckDefenseApText) this.els.deckDefenseApText.textContent = `${state.ap}/${state.maxAp}`;
+        if (this.els.deckDefenseApText) this.els.deckDefenseApText.textContent = `${state.turn} · ${state.energy}/${state.maxEnergy}`;
         if (this.els.deckDefenseTreasureText) this.els.deckDefenseTreasureText.textContent = g.getDeckDefenseTreasureStatusText();
         if (this.els.deckDefenseDrawText) this.els.deckDefenseDrawText.textContent = `抽牌 ${state.deck?.drawPile.length || 0}`;
         if (this.els.deckDefenseDiscardText) this.els.deckDefenseDiscardText.textContent = `弃牌 ${state.deck?.discardPile.length || 0}`;
+        if (this.els.deckDefenseExhaustText) this.els.deckDefenseExhaustText.textContent = `消耗 ${state.deck?.exhaustPile.length || 0}`;
+        if (this.els.deckDefenseIntentText) this.els.deckDefenseIntentText.textContent = g.getDeckDefenseIntentText();
+        if (this.els.deckDefenseSelectedText) this.els.deckDefenseSelectedText.textContent = g.getDeckDefenseSelectedCardText();
+        if (this.els.deckDefensePowersText) this.els.deckDefensePowersText.textContent = g.getDeckDefensePowersText();
         if (this.els.deckDefenseStartWaveBtn) {
-          this.els.deckDefenseStartWaveBtn.disabled = state.phase !== "deploy" || g.buffSelectionOpen || g.gameDialogOpen || g.isTerminalStatus();
-          this.els.deckDefenseStartWaveBtn.textContent = state.phase === "battle" ? "战斗中" : "开始波次";
+          this.els.deckDefenseStartWaveBtn.disabled = state.phase !== "PLAYER_TURN" || g.buffSelectionOpen || g.gameDialogOpen || g.isTerminalStatus();
+          this.els.deckDefenseStartWaveBtn.textContent = state.phase === "RESOLVE_WINDOW"
+            ? `结算 ${Math.ceil(state.resolveTimer * 10) / 10}s`
+            : state.phase === "PLAYER_TURN"
+              ? "结束回合"
+              : state.phase === "reward"
+                ? "选择奖励"
+                : "结束回合";
         }
         this.renderDeckDefenseHand();
       }
@@ -11417,7 +11424,7 @@
         const g = this.game;
         const state = g.deckDefense;
         if (!list || !state?.deck) return;
-        const key = state.deck.hand.map(instance => `${instance.instanceId}:${instance.cardId}`).join("|") + `|${state.ap}|${state.selectedCardInstanceId}|${state.phase}|${state.buildCardsPlayedThisWave}|${state.firstMagnetPlayed}`;
+        const key = state.deck.hand.map(instance => `${instance.instanceId}:${instance.cardId}`).join("|") + `|${state.energy}|${state.selectedCardInstanceId}|${state.phase}|${state.cardsPlayedThisTurn}|${state.structureCardsPlayedThisTurn}|${state.powers.join(",")}|${state.deck.drawPile.length}|${state.deck.discardPile.length}|${state.deck.exhaustPile.length}|${state.combatState.firstMagnetPlayed}`;
         if (key === this.lastDeckDefenseHandKey) return;
         this.lastDeckDefenseHandKey = key;
         list.innerHTML = "";
@@ -11425,11 +11432,14 @@
           const card = getDeckDefenseCard(instance.cardId);
           if (!card) continue;
           const cost = g.getDeckDefenseCardCost(card);
-          const playable = state.phase === "deploy" && cost <= state.ap;
+          const reason = g.getDeckDefenseCardUnplayableReason(card);
+          const playable = !reason;
+          const exhaustClass = card.keywords?.includes("exhaust") ? " deck-card-exhaust" : "";
           const btn = document.createElement("button");
           btn.type = "button";
-          btn.className = `deck-card deck-card-${card.type}${playable ? "" : " unplayable"}${state.selectedCardInstanceId === instance.instanceId ? " selected" : ""}`;
+          btn.className = `deck-card deck-card-${card.type}${exhaustClass}${playable ? "" : " unplayable"}${state.selectedCardInstanceId === instance.instanceId ? " selected" : ""}`;
           btn.dataset.deckCardInstance = String(instance.instanceId);
+          btn.title = reason || card.description || "";
           btn.disabled = g.isTerminalStatus();
           btn.innerHTML = `
             <span class="deck-card-top">
@@ -11596,7 +11606,7 @@
         }
         if (this.els.buffSelectionSubtitle) {
           this.els.buffSelectionSubtitle.textContent = isDeckCardReward
-            ? "点击 1 张卡，将它加入弃牌堆；下次洗牌后即可抽到。"
+            ? "点击 1 张卡，将它加入牌库；下一场战斗开始后即可抽到。"
             : isDeckRelicReward
               ? "遗物不会进入牌库，选择后立即改变本局规则。"
               : isStartingRelic
@@ -11624,12 +11634,12 @@
           card.className = `roguelike-card ${isDeckCardReward || isDeckRelicReward ? "quality-common" : getBuffQualityClass(buff.quality)}`;
           const costLabel = isStartingRelic ? "风险" : isDeckCardReward ? "费用/类型" : isDeckRelicReward ? "类型" : "代价";
           const costText = isDeckCardReward
-            ? `${this.game.getDeckDefenseCardCost(buff)} AP · ${DECK_DEFENSE_CARD_TYPE_LABELS[buff.type] || buff.type}`
+            ? `${this.game.getDeckDefenseCardCost(buff)} 能量 · ${DECK_DEFENSE_CARD_TYPE_LABELS[buff.type] || buff.type}`
             : isDeckRelicReward
               ? "遗物"
               : isStartingRelic ? (buff.riskText || "无") : (buff.costText || "无");
           const stackText = isDeckCardReward
-            ? "加入弃牌堆"
+            ? "加入牌库"
             : isDeckRelicReward
               ? "立即生效"
               : isStartingRelic ? "初始遗物 · 本局生效" : (stacks > 0 ? `已叠加 ${stacks} 次` : "未选择过");
@@ -13303,26 +13313,32 @@
         const deck = new DeckManager(this);
         deck.initStartingDeck();
         this.deckDefense = {
-          phase: "deploy",
+          phase: "IDLE",
           wave: 1,
-          maxAp: 3,
-          ap: 3,
-          drawCount: 5,
+          turn: 0,
+          maxEnergy: DECK_DEFENSE_BASE_ENERGY,
+          energy: DECK_DEFENSE_BASE_ENERGY,
+          drawPerTurn: DECK_DEFENSE_DRAW_PER_TURN,
+          handLimit: DECK_DEFENSE_HAND_LIMIT,
+          resolveWindowSeconds: DECK_DEFENSE_RESOLVE_SECONDS,
+          resolveTimer: 0,
           deck,
           selectedCardInstanceId: null,
-          waveSpawnQueue: [],
-          waveSpawnTimer: 0,
-          spawnedThisWave: 0,
+          selectedTarget: null,
           rewardPending: false,
-          buildCardsPlayedThisWave: 0,
-          firstMagnetPlayed: false,
+          cardsPlayedThisTurn: 0,
+          structureCardsPlayedThisTurn: 0,
+          powers: [],
           relics: [],
+          temporaryCombatTowers: [],
           relicState: {
-            apBonus: 0,
-            drawPenalty: 0,
-            firstBuildDiscount: false,
-            firstMagnetFree: false,
-            firstMagnetFreeUsed: false
+            firstTurnEnergyBonus: 0,
+            openingStructureDraw: 0,
+            firstMagnetDiscount: 0
+          },
+          combatState: {
+            firstMagnetPlayed: false,
+            detailedIntent: false
           },
           tempBuffState: this.createDeckDefenseTempBuffState()
         };
@@ -13332,7 +13348,7 @@
         this.mobileSelectedCell = null;
         this.selectedTower = null;
         this.buildModeTowerKey = null;
-        this.startDeckDefenseDeployPhase();
+        this.startDeckDefenseCombat(1);
       }
 
       createDeckDefenseTempBuffState() {
@@ -13341,28 +13357,70 @@
           slowedSniperMultiplier: 1,
           aoeBurnDamageMultiplier: 0,
           carrierPriority: false,
-          lureBeacon: null
+          lureBeacon: null,
+          globalTowerDamageMultiplier: 1,
+          nextResolveMonsterSpeedMultiplier: 1,
+          resolveMonsterSpeedMultiplier: 1
         };
       }
 
-      startDeckDefenseDeployPhase() {
+      startDeckDefenseCombat(wave = 1) {
         if (!this.isDeckDefenseMode() || !this.deckDefense) return;
         const state = this.deckDefense;
-        state.phase = "deploy";
+        state.phase = "IDLE";
+        state.wave = clamp(Math.floor(wave), 1, DECK_DEFENSE_MAX_WAVES);
+        state.turn = 0;
         state.selectedCardInstanceId = null;
-        state.waveSpawnQueue = [];
-        state.waveSpawnTimer = 0;
-        state.spawnedThisWave = 0;
-        state.buildCardsPlayedThisWave = 0;
+        state.selectedTarget = null;
+        state.cardsPlayedThisTurn = 0;
+        state.structureCardsPlayedThisTurn = 0;
+        state.powers = [];
+        state.combatState = { firstMagnetPlayed: false, detailedIntent: false };
         state.tempBuffState = this.createDeckDefenseTempBuffState();
+        state.temporaryCombatTowers = [];
+        state.deck.startCombat();
+        this.clearDeckDefenseTemporaryTowers();
+        this.monsters = [];
+        this.effects = [];
+        this.projectiles = [];
+        this.treasure?.reset?.();
+        this.spawnDeckDefenseWaveMonsters(state.wave);
+        this.rebuildMonsterSpatialIndex();
         this.resetDeckDefenseTowerTempModifiers();
         this.level = state.wave;
-        state.maxAp = 3 + (state.relicState.apBonus || 0);
-        state.ap = state.maxAp;
-        state.drawCount = Math.max(1, 5 - (state.relicState.drawPenalty || 0));
-        state.deck.startWaveDraw(state.drawCount, state.wave);
+        this.startDeckDefensePlayerTurn();
+      }
+
+      startDeckDefenseDeployPhase() {
+        this.startDeckDefenseCombat(this.deckDefense?.wave || 1);
+      }
+
+      spawnDeckDefenseWaveMonsters(wave) {
+        const queue = this.createDeckDefenseWaveQueue(wave);
+        const nest = this.getMainNest();
+        for (const typeKey of queue) this.spawnMonster(typeKey, nest, { spawnLevel: wave });
+      }
+
+      startDeckDefensePlayerTurn() {
+        if (!this.isDeckDefenseMode() || !this.deckDefense || this.isTerminalStatus()) return;
+        const state = this.deckDefense;
+        state.phase = "PLAYER_TURN";
+        state.turn += 1;
+        state.selectedCardInstanceId = null;
+        state.selectedTarget = null;
+        state.cardsPlayedThisTurn = 0;
+        state.structureCardsPlayedThisTurn = 0;
+        state.tempBuffState.resolveMonsterSpeedMultiplier = 1;
+        state.combatState.detailedIntent = Boolean(state.relicState.watchtowerIntent);
+        state.maxEnergy = DECK_DEFENSE_BASE_ENERGY;
+        state.energy = state.maxEnergy + (state.turn === 1 ? (state.relicState.firstTurnEnergyBonus || 0) : 0);
+        state.deck.drawCards(state.drawPerTurn);
+        if (state.turn === 1 && state.relicState.openingStructureDraw > 0) {
+          state.deck.drawCardsByPredicate(state.relicState.openingStructureDraw, card => card?.type === "structure");
+        }
+        if (state.wave === 1 && state.turn === 1) state.deck.forceFirstWaveProtection();
         this.status = GAME_STATUS.PAUSED;
-        this.showMessage(`塔牌构筑 第 ${state.wave}/${DECK_DEFENSE_MAX_WAVES} 波：抽 ${state.drawCount} 张，AP ${state.ap}/${state.maxAp}。`, true);
+        this.showMessage(`塔牌构筑 第 ${state.wave}/${DECK_DEFENSE_MAX_WAVES} 波 · 回合 ${state.turn}：抽 ${state.drawPerTurn} 张，能量 ${state.energy}/${state.maxEnergy}。`, true);
         this.requestUiRefresh();
       }
 
@@ -13372,15 +13430,23 @@
         }
       }
 
+      clearDeckDefenseTemporaryTowers() {
+        if (!Array.isArray(this.towers)) return;
+        const before = this.towers.length;
+        this.towers = this.towers.filter(tower => !tower.isTemporaryCombatTower);
+        if (this.towers.length !== before) this.updatePathVersion();
+        if (this.selectedTower?.isTemporaryCombatTower) this.selectedTower = null;
+      }
+
       getDeckDefenseCardCost(card) {
         if (!card || !this.deckDefense) return Infinity;
         let cost = Math.max(0, Number(card.cost || 0));
         const state = this.deckDefense;
-        if (card.type === "build" && state.relicState.firstBuildDiscount && state.buildCardsPlayedThisWave <= 0) {
+        if (card.type === "structure" && state.powers.includes("workshop_protocol") && state.structureCardsPlayedThisTurn <= 0) {
           cost = Math.max(0, cost - 1);
         }
-        if (card.id === "magnet" && state.relicState.firstMagnetFree && !state.relicState.firstMagnetFreeUsed) {
-          cost = 0;
+        if (card.id === "magnet" && !state.combatState.firstMagnetPlayed && (state.relicState.firstMagnetDiscount || 0) > 0) {
+          cost = Math.max(0, cost - state.relicState.firstMagnetDiscount);
         }
         return cost;
       }
@@ -13397,15 +13463,11 @@
 
       isDeckDefenseLegalTowerTarget(card, tower) {
         if (!card || !tower) return false;
-        if (card.type === "upgrade") {
-          if (card.id === "quick_upgrade") return tower.canUpgrade();
-          return true;
-        }
-        if (card.type === "evolution") {
-          return tower.typeKey === card.requiredTower && tower.level >= tower.maxLevel && !tower.evolutionKey && Boolean(tower.config.evolutions?.[card.evolutionKey]);
-        }
-        if (card.id === "emergency_repair") return true;
-        return false;
+        return ["quick_reinforce", "range_tuning"].includes(card.id);
+      }
+
+      isDeckDefenseLegalMonsterTarget(card, monster) {
+        return Boolean(card && monster?.alive && card.targetType === "monster");
       }
 
       getDeckDefenseTreasureStatusText() {
@@ -13416,19 +13478,69 @@
         return "安全";
       }
 
+      getDeckDefenseThreatMonster() {
+        const alive = (this.monsters || []).filter(monster => monster.alive);
+        if (!alive.length) return null;
+        const targetPoint = this.treasure?.state === "carried"
+          ? this.getMainNest()
+          : this.treasure || { x: this.worldWidth, y: this.worldHeight };
+        const scoreMonster = (monster) => {
+          const cfg = monster.config || MONSTER_TYPES[monster.typeKey] || {};
+          const distanceScore = 1000 - Math.min(1000, distanceXY(monster.x, monster.y, targetPoint.x, targetPoint.y));
+          const carrierScore = monster.carryingTreasure ? 10000 : 0;
+          const bossScore = cfg.isBoss ? 1600 : 0;
+          const speedScore = (monster.speed || 0) * 12;
+          const hpScore = (monster.hp || 0) / Math.max(1, monster.maxHp || 1) * 120;
+          return carrierScore + bossScore + distanceScore + speedScore + hpScore;
+        };
+        return alive.sort((a, b) => scoreMonster(b) - scoreMonster(a))[0] || null;
+      }
+
+      getDeckDefenseIntentText() {
+        const state = this.deckDefense;
+        if (!state) return "意图：无";
+        const alive = (this.monsters || []).filter(monster => monster.alive);
+        if (!alive.length) return "意图：本场已肃清";
+        const threat = this.getDeckDefenseThreatMonster();
+        const cfg = threat?.config || MONSTER_TYPES[threat?.typeKey] || {};
+        const action = threat?.carryingTreasure
+          ? "携宝返回巢穴"
+          : this.treasure?.state === "dropped"
+            ? "争夺掉落宝物"
+            : "向宝物移动";
+        const resolveText = state.phase === "RESOLVE_WINDOW" ? `结算中 ${Math.ceil(state.resolveTimer * 10) / 10}s` : "下个结算窗口";
+        if (state.combatState?.detailedIntent) {
+          const hpText = `${Math.max(0, Math.ceil(threat.hp || 0))}/${Math.max(1, Math.ceil(threat.maxHp || 1))}`;
+          return `意图：${resolveText} · 最高威胁 ${cfg.name || threat.typeKey} · ${action} · HP ${hpText} · 敌人 ${alive.length}`;
+        }
+        return `意图：${resolveText} · 最高威胁 ${cfg.name || threat?.typeKey || "怪物"} · ${action}`;
+      }
+
+      getDeckDefenseSelectedCardText() {
+        const card = this.getDeckDefenseSelectedCard();
+        if (!card) return "选中：无";
+        const targetText = card.targetType === "tile" ? "格子" : card.targetType === "tower" ? "防御塔" : card.targetType === "monster" ? "怪物" : "无目标";
+        return `选中：${card.name} · ${this.getDeckDefenseCardCost(card)} 能量 · 目标 ${targetText}`;
+      }
+
+      getDeckDefensePowersText() {
+        const state = this.deckDefense;
+        const powerNames = (state?.powers || []).map(id => getDeckDefenseCard(id)?.name).filter(Boolean);
+        const relicNames = (state?.relics || []).map(id => DECK_DEFENSE_RELICS.find(item => item.id === id)?.name).filter(Boolean);
+        const powerText = powerNames.length ? `能力：${powerNames.join("、")}` : "能力：无";
+        const relicText = relicNames.length ? `遗物：${relicNames.join("、")}` : "遗物：无";
+        return `${powerText} ｜ ${relicText}`;
+      }
+
       handleDeckDefenseCardClick(instanceId) {
         if (!this.isDeckDefenseMode() || !this.deckDefense) return;
         const state = this.deckDefense;
         const instance = state.deck.hand.find(card => card.instanceId === instanceId);
         const card = getDeckDefenseCard(instance?.cardId);
         if (!card) return;
-        if (state.phase !== "deploy") {
-          this.showMessage("战斗中不能打牌，请等待本波结算。", true);
-          return;
-        }
-        const cost = this.getDeckDefenseCardCost(card);
-        if (cost > state.ap) {
-          this.showMessage("行动点不足。", true);
+        const reason = this.getDeckDefenseCardUnplayableReason(card);
+        if (reason) {
+          this.showMessage(reason, true);
           return;
         }
         if (card.targetType === "none") {
@@ -13436,39 +13548,72 @@
           return;
         }
         state.selectedCardInstanceId = state.selectedCardInstanceId === instanceId ? null : instanceId;
-        const targetText = card.targetType === "emptyCell" ? "请选择一个可建造空格。" : card.targetType === "tower" ? "请选择一座合法目标塔。" : "请选择一个地图格。";
+        const targetText = card.targetType === "tile" ? "请选择一个可建造空格。" : card.targetType === "tower" ? "请选择一座合法目标塔。" : "请选择一个怪物。";
         this.showMessage(`已选择「${card.name}」。${targetText}`, true);
         this.requestUiRefresh();
+      }
+
+      getDeckDefenseValidTargets(card) {
+        if (!card) return [];
+        if (card.targetType === "none") return [];
+        if (card.targetType === "tile") {
+          const cells = [];
+          for (let col = 0; col < GAME_CONFIG.gridCols; col += 1) {
+            for (let row = 0; row < GAME_CONFIG.gridRows; row += 1) {
+              if (this.canPlaceTower(col, row)) cells.push({ col, row });
+            }
+          }
+          return cells;
+        }
+        if (card.targetType === "tower") return this.towers.filter(tower => this.isDeckDefenseLegalTowerTarget(card, tower));
+        if (card.targetType === "monster") return this.monsters.filter(monster => this.isDeckDefenseLegalMonsterTarget(card, monster));
+        return [];
+      }
+
+      getDeckDefenseCardUnplayableReason(card) {
+        if (!card) return "无效卡牌。";
+        const state = this.deckDefense;
+        if (!state || state.phase !== "PLAYER_TURN") return "当前不是玩家回合，不能打牌。";
+        const cost = this.getDeckDefenseCardCost(card);
+        if (cost > state.energy) return `能量不足：需要 ${cost}。`;
+        if (card.id === "magnet" && (this.treasure.state !== "dropped" || this.treasure.carrier)) return "宝物未掉落，吸铁石暂时不能使用。";
+        if (card.id === "full_calibration" && !this.towers.length) return "没有防御塔可以校准。";
+        if (card.id === "tower_storm" && !this.towers.length) return "没有防御塔可以发动塔阵风暴。";
+        if (card.targetType !== "none" && this.getDeckDefenseValidTargets(card).length <= 0) return "没有合法目标。";
+        return "";
       }
 
       playDeckDefenseCard(instance, target) {
         if (!instance || !this.deckDefense) return false;
         const card = getDeckDefenseCard(instance.cardId);
         if (!card) return false;
-        const cost = this.getDeckDefenseCardCost(card);
-        if (cost > this.deckDefense.ap) {
-          this.showMessage("行动点不足。", true);
+        const reason = this.getDeckDefenseCardUnplayableReason(card);
+        if (reason) {
+          this.showMessage(reason, true);
           return false;
         }
+        const cost = this.getDeckDefenseCardCost(card);
         const result = this.applyDeckDefenseCardEffect(card, target);
         if (!result) return false;
-        this.deckDefense.ap -= cost;
-        this.deckDefense.deck.playCard(instance.instanceId);
-        if (card.type === "build") this.deckDefense.buildCardsPlayedThisWave += 1;
-        if (card.id === "magnet" && this.deckDefense.relicState.firstMagnetFree && !this.deckDefense.relicState.firstMagnetFreeUsed) {
-          this.deckDefense.relicState.firstMagnetFreeUsed = true;
-        }
+        this.deckDefense.energy -= cost;
+        const destination = card.type === "power" ? "power" : card.keywords?.includes("exhaust") ? "exhaust" : "discard";
+        this.deckDefense.deck.playCard(instance.instanceId, destination);
+        this.deckDefense.cardsPlayedThisTurn += 1;
+        if (card.type === "structure") this.deckDefense.structureCardsPlayedThisTurn += 1;
+        if (card.type === "power" && !this.deckDefense.powers.includes(card.id)) this.deckDefense.powers.push(card.id);
+        if (card.id === "magnet") this.deckDefense.combatState.firstMagnetPlayed = true;
         this.deckDefense.selectedCardInstanceId = null;
-        this.showMessage(`打出「${card.name}」，消耗 ${cost} AP。`, false);
+        this.showMessage(`打出「${card.name}」，消耗 ${cost} 能量。`, false);
+        this.checkDeckDefenseWaveClear();
         this.requestUiRefresh();
         return true;
       }
 
       applyDeckDefenseCardEffect(card, target) {
-        if (card.type === "build") return this.deckDefenseBuildTower(card, target);
-        if (card.type === "upgrade") return this.deckDefenseApplyUpgradeCard(card, target);
-        if (card.type === "evolution") return this.deckDefenseApplyEvolutionCard(card, target);
-        if (card.type === "tactic") return this.deckDefenseApplyTacticCard(card, target);
+        if (card.type === "structure") return this.deckDefenseBuildTower(card, target);
+        if (card.type === "command") return this.deckDefenseApplyCommandCard(card, target);
+        if (card.type === "skill") return this.deckDefenseApplySkillCard(card, target);
+        if (card.type === "power") return this.deckDefenseApplyPowerCard(card, target);
         return false;
       }
 
@@ -13482,7 +13627,11 @@
         if (!cfg) return false;
         const tower = new Tower(this, towerType, target.col, target.row, 0);
         tower.deckTempModifiers = createDeckDefenseTempModifiers();
+        tower.isDeckDefenseTower = true;
+        tower.isTemporaryCombatTower = true;
+        tower.createdByCardId = card.id;
         this.towers.push(tower);
+        this.deckDefense.temporaryCombatTowers.push(tower);
         this.runTowersBuilt = (this.runTowersBuilt || 0) + 1;
         this.runTowerTypesBuilt?.add?.(towerType);
         this.selectedTower = tower;
@@ -13546,6 +13695,159 @@
       addDeckDefenseTowerModifier(tower, key, multiplier) {
         if (!tower.deckTempModifiers) tower.deckTempModifiers = createDeckDefenseTempModifiers();
         tower.deckTempModifiers[key] = (tower.deckTempModifiers[key] || 1) * multiplier;
+      }
+
+      deckDefenseApplyCommandCard(card, target) {
+        if (card.id === "focus_fire") {
+          const monster = target?.monster;
+          if (!monster?.alive) {
+            this.showMessage("请选择一个怪物作为集火目标。", true);
+            return false;
+          }
+          let hits = 0;
+          for (const tower of this.towers) {
+            if (this.deckDefenseTowerCanAttackMonster(tower, monster)) {
+              this.deckDefenseInstantTowerAttack(tower, monster, 1);
+              hits += 1;
+            }
+          }
+          if (hits <= 0) {
+            this.showMessage("没有防御塔能攻击该怪物。", true);
+            return false;
+          }
+          this.spawnFloatingText(`集火 x${hits}`, monster.x, monster.y - monster.radius - 18, "#ff5c7a", 1.25);
+          return true;
+        }
+        if (card.id === "tower_storm") {
+          if (!this.towers.length) {
+            this.showMessage("没有防御塔可以发动塔阵风暴。", true);
+            return false;
+          }
+          let hits = 0;
+          for (let i = 0; i < 2; i += 1) {
+            for (const tower of this.towers) {
+              const monster = tower.findNearestMonster?.();
+              if (monster) {
+                this.deckDefenseInstantTowerAttack(tower, monster, 1);
+                hits += 1;
+              }
+            }
+          }
+          this.spawnFloatingText(`塔阵风暴 x${hits}`, this.worldWidth / 2, this.worldHeight / 2 - 36, "#ffd166", 1.5);
+          return hits > 0;
+        }
+        return false;
+      }
+
+      deckDefenseApplySkillCard(card, target) {
+        const state = this.deckDefense;
+        if (card.id === "quick_reinforce") {
+          const tower = target?.tower;
+          if (!tower) {
+            this.showMessage("请选择一座塔加固。", true);
+            return false;
+          }
+          this.addDeckDefenseTowerModifier(tower, "damageMultiplier", 1.2);
+          this.spawnFloatingText("伤害+20%", tower.x, tower.y - 34, "#53d37f", 1.15);
+          return true;
+        }
+        if (card.id === "range_tuning") {
+          const tower = target?.tower;
+          if (!tower) {
+            this.showMessage("请选择一座塔调校射程。", true);
+            return false;
+          }
+          this.addDeckDefenseTowerModifier(tower, "rangeMultiplier", 1.15);
+          this.spawnFloatingText("射程+15%", tower.x, tower.y - 34, "#53d37f", 1.15);
+          return true;
+        }
+        if (card.id === "scout") {
+          state.deck.drawCards(1);
+          state.combatState.detailedIntent = true;
+          this.showMessage("侦查：抽 1 张，本回合显示详细怪物意图。", true);
+          return true;
+        }
+        if (card.id === "magnet") {
+          if (this.treasure.state !== "dropped" || this.treasure.carrier) {
+            this.showMessage("当前没有可吸回的掉落宝物。", true);
+            return false;
+          }
+          const success = this.treasure.magnetBack();
+          if (success) {
+            this.magnetUses = (this.magnetUses || 0) + 1;
+            this.spawnFloatingText("吸铁石", this.treasure.x, this.treasure.y - 34, "#b084ff", 1.25);
+          }
+          return success;
+        }
+        if (card.id === "treasure_shield") {
+          state.tempBuffState.treasureProtectionBonus += 2;
+          this.showMessage("本场战斗宝物掉落保护时间 +2 秒。", false);
+          return true;
+        }
+        if (card.id === "freeze_path") {
+          state.tempBuffState.nextResolveMonsterSpeedMultiplier *= 0.65;
+          this.showMessage("下一结算窗口怪物速度 -35%。", false);
+          return true;
+        }
+        if (card.id === "blueprint_search") {
+          const drawn = state.deck.drawCardsByPredicate(2, item => item?.type === "structure");
+          if (drawn.length <= 0) state.deck.drawCards(1);
+          this.showMessage(drawn.length > 0 ? `蓝图检索：抽到 ${drawn.length} 张建设牌。` : "蓝图检索：没有建设牌，改为抽 1 张。", false);
+          return true;
+        }
+        if (card.id === "full_calibration") {
+          if (!this.towers.length) {
+            this.showMessage("没有防御塔可以校准。", true);
+            return false;
+          }
+          state.tempBuffState.globalTowerDamageMultiplier *= 1.2;
+          for (const tower of this.towers) this.addDeckDefenseTowerModifier(tower, "damageMultiplier", 1.2);
+          this.spawnFloatingText("全线校准", this.worldWidth / 2, this.worldHeight / 2 - 36, "#53d37f", 1.4);
+          return true;
+        }
+        return false;
+      }
+
+      deckDefenseApplyPowerCard(card) {
+        if (card.id === "workshop_protocol") {
+          this.spawnFloatingText("工坊协议", this.treasure.x, this.treasure.y - 42, "#b084ff", 1.4);
+          return true;
+        }
+        return false;
+      }
+
+      deckDefenseTowerCanAttackMonster(tower, monster) {
+        if (!tower || !monster?.alive || tower.isTrap) return false;
+        if (!this.canTowerAffectMonster(tower, monster, "direct")) return false;
+        if (!this.canTowerTargetThroughStone?.(tower, monster)) return false;
+        return distanceXY(tower.x, tower.y, monster.x, monster.y) <= tower.getRange() + monster.radius * 0.25;
+      }
+
+      deckDefenseInstantTowerAttack(tower, target, multiplier = 1) {
+        if (!tower || !target?.alive) return false;
+        const pulseSeconds = 0.9 * multiplier;
+        const slow = tower.getSlowMultiplier?.() || 1;
+        tower.lastTarget = target;
+        if (tower.config?.isAoe) {
+          const radius = tower.getAoeRadius();
+          tower.lastAoe = { x: target.x, y: target.y, radius };
+          for (const monster of this.getMonstersNear(target.x, target.y, radius + 70)) {
+            if (!monster.alive || !this.canTowerAffectMonster(tower, monster, "aoe")) continue;
+            if (distanceXY(monster.x, monster.y, target.x, target.y) <= radius + monster.radius * 0.25) {
+              const dps = tower.getDamageAgainst(monster);
+              monster.takeDamage(dps * pulseSeconds);
+              this.applyTowerHitEffects(tower, monster, dps);
+              if (slow < 1) monster.applySlow(slow);
+            }
+          }
+          return true;
+        }
+        if (!this.deckDefenseTowerCanAttackMonster(tower, target)) return false;
+        const dps = tower.getDamageAgainst(target);
+        target.takeDamage(dps * pulseSeconds);
+        this.applyTowerHitEffects(tower, target, dps);
+        if (slow < 1) target.applySlow(slow);
+        return true;
       }
 
       deckDefenseApplyEvolutionCard(card, target) {
@@ -13628,15 +13930,21 @@
       }
 
       deckDefenseStartWave() {
-        if (!this.isDeckDefenseMode() || !this.deckDefense || this.deckDefense.phase !== "deploy") return;
-        this.deckDefense.selectedCardInstanceId = null;
-        this.deckDefense.deck.discardHand();
-        this.deckDefense.phase = "battle";
-        this.deckDefense.waveSpawnQueue = this.createDeckDefenseWaveQueue(this.deckDefense.wave);
-        this.deckDefense.waveSpawnTimer = 0;
-        this.deckDefense.spawnedThisWave = 0;
+        this.deckDefenseEndTurn();
+      }
+
+      deckDefenseEndTurn() {
+        if (!this.isDeckDefenseMode() || !this.deckDefense || this.deckDefense.phase !== "PLAYER_TURN") return;
+        const state = this.deckDefense;
+        state.selectedCardInstanceId = null;
+        state.selectedTarget = null;
+        state.deck.discardHand();
+        state.phase = "RESOLVE_WINDOW";
+        state.resolveTimer = state.resolveWindowSeconds;
+        state.tempBuffState.resolveMonsterSpeedMultiplier = state.tempBuffState.nextResolveMonsterSpeedMultiplier || 1;
+        state.tempBuffState.nextResolveMonsterSpeedMultiplier = 1;
         this.status = GAME_STATUS.RUNNING;
-        this.showMessage(`第 ${this.deckDefense.wave} 波开始！`, false);
+        this.showMessage(`结算窗口开始：${state.resolveWindowSeconds} 秒。`, false);
         this.requestUiRefresh();
       }
 
@@ -13655,39 +13963,38 @@
 
       updateDeckDefenseMode(dt) {
         if (!this.deckDefense || this.isTerminalStatus()) return;
-        const simDt = this.status === GAME_STATUS.RUNNING ? dt * this.getGameSpeedMultiplier() : 0;
-        if (this.status === GAME_STATUS.RUNNING && this.deckDefense.phase === "battle") {
-          this.gameTime += simDt;
-          this.updateBuffTimers(simDt);
-          this.updateAchievementShopEffectTimers(simDt);
-          this.updateDeckDefenseSpawning(simDt);
-          for (const monster of this.monsters) monster.beginFrame();
-          this.rebuildMonsterSpatialIndex();
-          for (const tower of this.towers) tower.update(simDt);
-          this.removeDeadMonsters();
-          for (const monster of this.monsters) monster.update(simDt);
-          this.treasure.update(simDt);
-          this.removeDeadMonsters();
-          this.checkDeckDefenseWaveClear();
+        const state = this.deckDefense;
+        if (state.phase !== "RESOLVE_WINDOW" || this.status !== GAME_STATUS.RUNNING) {
+          if (state.phase === "PLAYER_TURN") this.checkDeckDefenseWaveClear();
+          return;
         }
+        const simDt = dt * this.getGameSpeedMultiplier();
+        this.gameTime += simDt;
+        this.updateBuffTimers(simDt);
+        this.updateAchievementShopEffectTimers(simDt);
+        for (const monster of this.monsters) monster.beginFrame();
+        if ((state.tempBuffState.resolveMonsterSpeedMultiplier || 1) < 1) {
+          for (const monster of this.monsters) monster.applySlow(state.tempBuffState.resolveMonsterSpeedMultiplier);
+        }
+        this.rebuildMonsterSpatialIndex();
+        for (const tower of this.towers) tower.update(simDt);
+        this.removeDeadMonsters();
+        for (const monster of this.monsters) monster.update(simDt);
+        this.treasure.update(simDt);
+        this.removeDeadMonsters();
+        this.checkDeckDefenseWaveClear();
+        if (this.isTerminalStatus() || this.deckDefense.phase !== "RESOLVE_WINDOW") return;
+        state.resolveTimer = Math.max(0, state.resolveTimer - simDt);
+        if (state.resolveTimer <= 0) this.startDeckDefensePlayerTurn();
       }
 
       updateDeckDefenseSpawning(dt) {
-        const state = this.deckDefense;
-        if (!state?.waveSpawnQueue?.length) return;
-        state.waveSpawnTimer -= dt;
-        while (state.waveSpawnTimer <= 0 && state.waveSpawnQueue.length && this.monsters.length < GAME_CONFIG.maxMonsters) {
-          const typeKey = state.waveSpawnQueue.shift();
-          this.spawnMonster(typeKey, this.getMainNest(), { spawnLevel: state.wave });
-          state.spawnedThisWave += 1;
-          state.waveSpawnTimer += this.getDeckDefenseSpawnGap(state.wave);
-        }
+        // Slay-like Deck Defense initializes each encounter at combat start.
       }
 
       checkDeckDefenseWaveClear() {
         const state = this.deckDefense;
-        if (!state || state.phase !== "battle") return;
-        if (state.waveSpawnQueue.length > 0) return;
+        if (!state || state.phase === "reward" || state.phase === "complete") return;
         if (this.monsters.some(monster => monster.alive)) return;
         this.finishDeckDefenseWave();
       }
@@ -13696,21 +14003,19 @@
         const state = this.deckDefense;
         if (!state || this.isTerminalStatus()) return;
         this.resetDeckDefenseTowerTempModifiers();
+        this.clearDeckDefenseTemporaryTowers();
+        state.deck.discardHand();
+        state.phase = "reward";
         this.gold += 20 + state.wave * 5;
         if (state.wave >= DECK_DEFENSE_MAX_WAVES) {
           this.completeDeckDefenseMode();
-          return;
-        }
-        if ([2, 4, 6, 8].includes(state.wave)) {
-          this.openDeckDefenseCardReward();
           return;
         }
         if (state.wave === 5) {
           this.openDeckDefenseRelicReward();
           return;
         }
-        state.wave += 1;
-        this.startDeckDefenseDeployPhase();
+        this.openDeckDefenseCardReward();
       }
 
       completeDeckDefenseMode() {
@@ -13723,7 +14028,7 @@
         this.exitBuildMode(true);
         this.updateBestLevel();
         this.recordCompletedRunLocally("completed");
-        this.spawnFloatingText("Deck Defense 胜利", this.worldWidth / 2, this.worldHeight / 2 - 42, "#ffd166", 2.2);
+        this.spawnFloatingText("塔牌构筑胜利", this.worldWidth / 2, this.worldHeight / 2 - 42, "#ffd166", 2.2);
         this.showMessage("通关！塔牌构筑已守住第 10 波。", true);
       }
 
@@ -13750,7 +14055,7 @@
         this.buffSelectionOpen = true;
         this.selectionPanelMode = "deck_defense_card";
         this.buffSelectionOptions = this.drawDeckDefenseCardRewardOptions(3);
-        this.showMessage("选择一张卡加入弃牌堆。", true);
+        this.showMessage("选择一张卡加入牌库，下一场战斗生效。", true);
         this.requestUiRefresh();
       }
 
@@ -13768,8 +14073,8 @@
       chooseDeckDefenseCardReward(cardId) {
         const card = getDeckDefenseCard(cardId);
         if (!this.isDeckDefenseMode() || !this.buffSelectionOpen || this.selectionPanelMode !== "deck_defense_card" || !card) return;
-        this.deckDefense.deck.addCardToDiscard(card.id);
-        this.closeDeckDefenseReward(`获得卡牌「${card.name}」，已加入弃牌堆。`);
+        this.deckDefense.deck.addCardToDeck(card.id);
+        this.closeDeckDefenseReward(`获得卡牌「${card.name}」，已加入牌库。`);
       }
 
       chooseDeckDefenseRelicReward(relicId) {
@@ -13785,9 +14090,9 @@
         this.buffSelectionOpen = false;
         this.selectionPanelMode = null;
         this.buffSelectionOptions = [];
-        this.deckDefense.wave += 1;
+        const nextWave = Math.min(DECK_DEFENSE_MAX_WAVES, (this.deckDefense?.wave || 1) + 1);
         this.showMessage(message, false);
-        this.startDeckDefenseDeployPhase();
+        this.startDeckDefenseCombat(nextWave);
       }
 
       scaleExistingMonsterHp(multiplier) {
@@ -15048,8 +15353,8 @@
           this.showMessage(this.getSelectionBlockMessage(), true);
           return;
         }
-        if (this.isDeckDefenseMode?.() && this.deckDefense?.phase !== "battle") {
-          this.showMessage("部署阶段请点击“开始波次”进入战斗。", true);
+        if (this.isDeckDefenseMode?.() && this.deckDefense?.phase !== "RESOLVE_WINDOW") {
+          this.showMessage("玩家回合请出牌或点击“结束回合”。", true);
           return;
         }
         if (this.status !== GAME_STATUS.PAUSED) return;
@@ -15430,7 +15735,7 @@
         const cell = this.pointToCell(x, y);
         const tower = this.getTowerAtPoint(x, y) || this.getTowerAtCell(cell.col, cell.row);
         if (this.isDeckDefenseMode?.()) {
-          this.handleDeckDefenseCanvasClick(cell, tower);
+          this.handleDeckDefenseCanvasClick(cell, tower, x, y);
           return;
         }
         if (this.isMobileLayout()) {
@@ -15480,13 +15785,13 @@
         this.placeTowerAtCell(typeKey, cell);
       }
 
-      handleDeckDefenseCanvasClick(cell, tower) {
+      handleDeckDefenseCanvasClick(cell, tower, x, y) {
         const state = this.deckDefense;
         if (!state) return;
         const instance = this.getDeckDefenseSelectedInstance();
         const card = getDeckDefenseCard(instance?.cardId);
-        if (card && state.phase === "deploy") {
-          if (card.targetType === "emptyCell") {
+        if (card && state.phase === "PLAYER_TURN") {
+          if (card.targetType === "tile") {
             this.playDeckDefenseCard(instance, { col: cell.col, row: cell.row });
             return;
           }
@@ -15494,8 +15799,9 @@
             this.playDeckDefenseCard(instance, { tower });
             return;
           }
-          if (card.targetType === "cell") {
-            this.playDeckDefenseCard(instance, { cell });
+          if (card.targetType === "monster") {
+            const monster = this.getMonsterAtPoint(x, y);
+            this.playDeckDefenseCard(instance, { monster });
             return;
           }
         }
@@ -15537,6 +15843,22 @@
           if (distanceXY(x, y, tower.x, tower.y) <= pickRadius) return tower;
         }
         return null;
+      }
+
+      getMonsterAtPoint(x, y) {
+        let best = null;
+        let bestDistance = Infinity;
+        for (let i = this.monsters.length - 1; i >= 0; i -= 1) {
+          const monster = this.monsters[i];
+          if (!monster.alive) continue;
+          const pickRadius = Math.max(monster.radius + 12, GAME_CONFIG.cellSize * 0.36);
+          const d = distanceXY(x, y, monster.x, monster.y);
+          if (d <= pickRadius && d < bestDistance) {
+            best = monster;
+            bestDistance = d;
+          }
+        }
+        return best;
       }
 
       getTowerAtCell(col, row) {
@@ -16621,7 +16943,7 @@
             const x = col * GAME_CONFIG.cellSize;
             const y = row * GAME_CONFIG.cellSize;
             const placeable = this.canPlaceTower(col, row);
-            if (deckCard?.targetType === "emptyCell") {
+            if (deckCard?.targetType === "tile") {
               ctx.fillStyle = placeable ? "rgba(83, 211, 127, 0.12)" : "rgba(255, 92, 122, 0.08)";
               ctx.fillRect(x, y, GAME_CONFIG.cellSize, GAME_CONFIG.cellSize);
             } else if (deckCard?.targetType === "cell") {
@@ -16634,7 +16956,7 @@
               ctx.fillStyle = placeable ? "rgba(255,255,255,0.012)" : "rgba(255,92,122,0.035)";
               ctx.fillRect(x, y, GAME_CONFIG.cellSize, GAME_CONFIG.cellSize);
             }
-            ctx.strokeStyle = deckCard?.targetType === "emptyCell"
+            ctx.strokeStyle = deckCard?.targetType === "tile"
               ? placeable ? "rgba(83,211,127,0.56)" : "rgba(255,92,122,0.22)"
               : deckCard?.targetType === "cell"
                 ? "rgba(255,159,67,0.42)"
@@ -16652,6 +16974,22 @@
             ctx.lineWidth = legal ? 5 : 3;
             ctx.beginPath();
             ctx.arc(tower.x, tower.y, GAME_CONFIG.cellSize * 0.43, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.restore();
+          }
+        }
+
+        if (deckCard?.targetType === "monster") {
+          for (const monster of this.monsters) {
+            const legal = this.isDeckDefenseLegalMonsterTarget(deckCard, monster);
+            ctx.save();
+            ctx.globalAlpha = legal ? 0.86 : 0.20;
+            ctx.strokeStyle = legal ? "#53d37f" : "#ff5c7a";
+            ctx.fillStyle = legal ? "rgba(83,211,127,0.10)" : "rgba(255,92,122,0.08)";
+            ctx.lineWidth = legal ? 5 : 3;
+            ctx.beginPath();
+            ctx.arc(monster.x, monster.y, Math.max(monster.radius + 10, GAME_CONFIG.cellSize * 0.34), 0, Math.PI * 2);
+            ctx.fill();
             ctx.stroke();
             ctx.restore();
           }
@@ -16968,7 +17306,7 @@
 
       drawStatusOverlay(ctx) {
         if (this.status === GAME_STATUS.RUNNING) return;
-        if (this.isDeckDefenseMode?.() && this.status === GAME_STATUS.PAUSED && this.deckDefense?.phase === "deploy") return;
+        if (this.isDeckDefenseMode?.() && this.status === GAME_STATUS.PAUSED && ["IDLE", "PLAYER_TURN", "reward"].includes(this.deckDefense?.phase)) return;
 
         const textMap = {
           [GAME_STATUS.NOT_STARTED]: this.modeSelectionOpen ? "选择游戏模式" : this.changelogModalOpen ? "更新日志" : this.mainMenuOpen ? "主界面" : "点击开始游戏",
