@@ -494,7 +494,15 @@
       display: block;
     }
 
+    body.deck-defense-mode .stats {
+      display: none;
+    }
+
     body.deck-defense-mode .build-block {
+      display: none !important;
+    }
+
+    body.deck-defense-mode #magnetBtn {
       display: none !important;
     }
 
@@ -2941,6 +2949,10 @@
         position: relative;
       }
 
+      body.deck-defense-mode .mobile-tab-bar {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
       .mobile-tab-bar::after {
         content: "";
         position: absolute;
@@ -2957,6 +2969,9 @@
       body.mobile-tab-upgrade .mobile-tab-bar::after { left: 37.5%; }
       body.mobile-tab-buffs .mobile-tab-bar::after { left: 62.5%; }
       body.mobile-tab-more .mobile-tab-bar::after { left: 87.5%; }
+      body.deck-defense-mode.mobile-tab-upgrade .mobile-tab-bar::after { left: 16.666%; }
+      body.deck-defense-mode.mobile-tab-buffs .mobile-tab-bar::after { left: 50%; }
+      body.deck-defense-mode.mobile-tab-more .mobile-tab-bar::after { left: 83.333%; }
 
       .mobile-tab-btn {
         min-height: 28px;
@@ -16929,6 +16944,7 @@
 
       drawStatusOverlay(ctx) {
         if (this.status === GAME_STATUS.RUNNING) return;
+        if (this.isDeckDefenseMode?.() && this.status === GAME_STATUS.PAUSED && this.deckDefense?.phase === "deploy") return;
 
         const textMap = {
           [GAME_STATUS.NOT_STARTED]: this.modeSelectionOpen ? "选择游戏模式" : this.changelogModalOpen ? "更新日志" : this.mainMenuOpen ? "主界面" : "点击开始游戏",
