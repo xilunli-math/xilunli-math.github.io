@@ -506,7 +506,14 @@
       display: none !important;
     }
 
-    body.deck-defense-mode .mobile-tab-btn[data-mobile-tab="build"] {
+    .deck-defense-more-btn {
+      display: none;
+    }
+
+    body.deck-defense-mode .mobile-tab-btn[data-mobile-tab="build"],
+    body.deck-defense-mode .mobile-tab-btn[data-mobile-tab="upgrade"],
+    body.deck-defense-mode .mobile-tab-btn[data-mobile-tab="buffs"],
+    body.deck-defense-mode .mobile-tab-btn[data-mobile-tab="more"] {
       display: none;
     }
 
@@ -2950,7 +2957,7 @@
       }
 
       body.deck-defense-mode .mobile-tab-bar {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        display: none;
       }
 
       .mobile-tab-bar::after {
@@ -3102,6 +3109,10 @@
       #speedToggleBtn,
       #aoeFillToggleBtn,
       #magnetBtn { display: block; }
+
+      body.deck-defense-mode #deckDefenseMoreBtn {
+        display: block;
+      }
 
       /* 低频按钮和塔操作按钮在手机端改由分页内容区的代理按钮显示，原按钮只保留事件与状态来源。 */
 
@@ -3818,6 +3829,7 @@
             <button id="pauseResumeBtn" class="btn-warn">暂停</button>
             <button id="speedToggleBtn" class="btn-muted">2x</button>
             <button id="aoeFillToggleBtn" class="btn-muted">隐藏aoe</button>
+            <button id="deckDefenseMoreBtn" class="btn-muted deck-defense-more-btn" type="button">更多</button>
             <button id="restartBtn" class="btn-danger">重新开始</button>
             <button id="saveBtn" class="btn-good">存档</button>
             <button id="loadSaveBtn" class="btn-good">读取存档</button>
@@ -4021,7 +4033,7 @@
           <span class="game-mode-desc">15级结束生成新怪物，清完场上怪物后通关，比拼剩余金币。</span>
         </button>
         <button class="game-mode-card" type="button" data-game-mode-key="deck_defense">
-          <span class="game-mode-name">塔牌构筑<br>Deck Defense</span>
+          <span class="game-mode-name">塔牌构筑</span>
           <span class="game-mode-desc">使用卡牌构筑防线，守住宝物。</span>
         </button>
       </div>
@@ -5815,6 +5827,8 @@
     const DECK_DEFENSE_MODE_KEY = "deck_defense";
     const DECK_DEFENSE_MAX_WAVES = 10;
     const DECK_DEFENSE_HAND_LIMIT = 7;
+    const DECK_DEFENSE_DEFAULT_SPAWN_GAP = 0.72;
+    const DECK_DEFENSE_FIRST_WAVE_SPAWN_GAP = 3;
 
     const DECK_DEFENSE_CARD_TYPE_LABELS = {
       build: "建塔",
@@ -5834,7 +5848,7 @@
     ];
 
     const DECK_DEFENSE_WAVES = [
-      { normal: 4 },
+      { normal: 2 },
       { normal: 5, elite: 1 },
       { normal: 6, runner: 2 },
       { normalCamo: 2, normal: 4 },
@@ -6387,6 +6401,8 @@
       "2x": "2x",
       "隐藏aoe": "Hide AOE",
       "显示aoe": "Show AOE",
+      "塔牌构筑": "Deck Defense",
+      "使用卡牌构筑防线，守住宝物。": "Build your defense with cards and protect the treasure.",
       "重新开始": "Restart",
       "存档": "Save",
       "读取存档": "Load Save",
@@ -10665,6 +10681,7 @@
           pauseResumeBtn: document.getElementById("pauseResumeBtn"),
           speedToggleBtn: document.getElementById("speedToggleBtn"),
           aoeFillToggleBtn: document.getElementById("aoeFillToggleBtn"),
+          deckDefenseMoreBtn: document.getElementById("deckDefenseMoreBtn"),
           restartBtn: document.getElementById("restartBtn"),
           saveBtn: document.getElementById("saveBtn"),
           loadSaveBtn: document.getElementById("loadSaveBtn"),
@@ -10784,6 +10801,7 @@
         this.els.pauseResumeBtn?.addEventListener("click", () => this.game.togglePauseResume());
         this.els.speedToggleBtn?.addEventListener("click", () => this.game.toggleGameSpeed());
         this.els.aoeFillToggleBtn?.addEventListener("click", () => this.game.toggleAoeFillVisibility());
+        this.els.deckDefenseMoreBtn?.addEventListener("click", () => this.setMobileTab("more"));
         this.els.restartBtn?.addEventListener("click", () => this.game.requestRestart());
         this.els.terminalRestartBtn?.addEventListener("click", (event) => {
           event.preventDefault();
@@ -12913,6 +12931,8 @@
 
       openStartingRelicSelection(monster = null, awardedGold = 0) {
         if (this.isTerminalStatus() || this.startingRelicChosen || this.startingRelicSelectionTriggered) return;
+        // Deck Defense has its own relic reward track. Keep classic starting relics disabled here for now.
+        if (this.isDeckDefenseMode?.()) return;
         this.startingRelicSelectionTriggered = true;
         this.startingRelicTriggerKill = { level: this.level, awardedGold, typeKey: monster?.typeKey || null };
         this.buffSelectionResumeStatus = this.status === GAME_STATUS.RUNNING ? GAME_STATUS.RUNNING : this.buffSelectionResumeStatus;
@@ -13629,6 +13649,10 @@
         return queue;
       }
 
+      getDeckDefenseSpawnGap(wave) {
+        return wave === 1 ? DECK_DEFENSE_FIRST_WAVE_SPAWN_GAP : DECK_DEFENSE_DEFAULT_SPAWN_GAP;
+      }
+
       updateDeckDefenseMode(dt) {
         if (!this.deckDefense || this.isTerminalStatus()) return;
         const simDt = this.status === GAME_STATUS.RUNNING ? dt * this.getGameSpeedMultiplier() : 0;
@@ -13656,7 +13680,7 @@
           const typeKey = state.waveSpawnQueue.shift();
           this.spawnMonster(typeKey, this.getMainNest(), { spawnLevel: state.wave });
           state.spawnedThisWave += 1;
-          state.waveSpawnTimer += 0.72;
+          state.waveSpawnTimer += this.getDeckDefenseSpawnGap(state.wave);
         }
       }
 
